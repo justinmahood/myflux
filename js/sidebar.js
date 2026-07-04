@@ -151,16 +151,59 @@
         e.dataTransfer.effectAllowed = "move";
         e.dataTransfer.setData("text/plain", group.dataset.catId);
         group.classList.add("dragging");
+        this.startAutoScroll(e.clientY);
       });
       header.addEventListener("dragend", () => {
         group.classList.remove("dragging");
+        this.stopAutoScroll();
         this.saveOrder();
       });
+    },
+
+    /* Scroll the sidebar while a drag hovers near its top/bottom edge —
+     * the browser doesn't auto-scroll inner overflow containers. */
+    _autoScroll: { raf: null, y: 0 },
+
+    startAutoScroll(initialY) {
+      const scroller = document.querySelector(".sidebar-scroll");
+      const ZONE = 56;       // px from edge where scrolling kicks in
+      const MAX_SPEED = 16;  // px per frame at the very edge
+      this._autoScroll.y = initialY;
+      const step = () => {
+        if (!document.querySelector(".cat-group.dragging")) {
+          this.stopAutoScroll();
+          return;
+        }
+        const rect = scroller.getBoundingClientRect();
+        const y = this._autoScroll.y;
+        let speed = 0;
+        if (y < rect.top + ZONE) {
+          speed = -Math.ceil(((rect.top + ZONE - y) / ZONE) * MAX_SPEED);
+        } else if (y > rect.bottom - ZONE) {
+          speed = Math.ceil(((y - (rect.bottom - ZONE)) / ZONE) * MAX_SPEED);
+        }
+        if (speed) scroller.scrollTop += speed;
+        this._autoScroll.raf = requestAnimationFrame(step);
+      };
+      cancelAnimationFrame(this._autoScroll.raf);
+      this._autoScroll.raf = requestAnimationFrame(step);
+    },
+
+    stopAutoScroll() {
+      cancelAnimationFrame(this._autoScroll.raf);
+      this._autoScroll.raf = null;
     },
 
     bindTreeDrag(tree) {
       if (tree.dataset.dndBound) return;
       tree.dataset.dndBound = "1";
+      // Track the pointer over the whole scroll area (smart feeds included)
+      // so edge auto-scroll works wherever the drag hovers.
+      tree.closest(".sidebar-scroll").addEventListener("dragover", (e) => {
+        if (!tree.querySelector(".cat-group.dragging")) return;
+        e.preventDefault();
+        this._autoScroll.y = e.clientY;
+      });
       tree.addEventListener("dragover", (e) => {
         const dragging = tree.querySelector(".cat-group.dragging");
         if (!dragging) return;
