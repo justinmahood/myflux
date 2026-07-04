@@ -64,6 +64,28 @@ XSS vectors, the API client (auth header, URL/param building, error mapping,
 OPML raw bodies, abort signals), state derivations and persistence, category
 ordering, and entry-list query building and row rendering.
 
+## Deploying (Docker / Google Cloud Run)
+
+The included `Dockerfile` builds the optimized bundle and serves it with
+nginx, listening on whatever `PORT` the platform injects (Cloud Run's
+contract). Sensible cache headers are set: hashed assets cache forever,
+`index.html`/`sw.js`/manifest are always revalidated.
+
+```sh
+# Local smoke test
+docker build -t myflux .
+docker run --rm -p 8080:8080 myflux    # http://localhost:8080
+
+# Cloud Run (uses Cloud Build; no local docker needed)
+gcloud run deploy myflux --source . --allow-unauthenticated --region us-central1
+```
+
+Cloud Run serves over HTTPS, so the PWA install and service worker work out
+of the box. Note that `--allow-unauthenticated` makes the page itself public
+(your Miniflux credentials stay in each browser's localStorage, never on this
+server) — keep the URL private or put your own auth in front if that bothers
+you.
+
 ## Installing as an app (PWA)
 
 Serve myflux over **HTTPS** (or localhost — service workers require a secure
