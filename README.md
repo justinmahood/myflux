@@ -34,30 +34,31 @@ plain HTML, CSS, and JavaScript. No frameworks, no build step, no dependencies.
 
 ## Running it
 
-There is no build step, but the app uses ES modules, so it must be served
-over HTTP (browsers block module imports from `file://`). Any static server
-works:
+The app has **no runtime dependencies and needs no build**: it's plain ES
+modules, so any static HTTP server can host this directory as-is (browsers
+block module imports from `file://`). For a smaller optimized deployment,
+`npm run build` emits a bundled `dist/`.
 
-- `python3 -m http.server 8422` in this directory, or
-- drop it behind any web server / static host
-
-Then sign in with your Miniflux server URL (e.g. `https://miniflux.example.com`)
+Sign in with your Miniflux server URL (e.g. `https://miniflux.example.com`)
 and your API key.
 
-## Testing
+## Development
 
-The test suite is as dependency-free as the app: it's a plain web page that
-imports the real ES modules and runs assertions in the browser (the sanitizer
-needs a real DOM anyway).
+Dev tooling (Vite + Vitest) is the only place npm is involved:
 
-Serve the directory and open [`/tests/`](tests/index.html) — results render on
-the page, the tab title shows pass/fail, and `window.__testResults` holds a
-machine-readable summary for headless runs. The suite covers the HTML
-sanitizer's XSS vectors, the API client (auth header, URL/param building,
-error mapping, OPML raw bodies), state derivations and persistence, category
-ordering, and entry-list query building and row rendering. Tests snapshot and
-restore the app's `myflux.*` localStorage keys, so running them won't touch
-your login or preferences.
+```sh
+npm install
+npm run dev        # Vite dev server with HMR on http://localhost:8422
+npm test           # Vitest (jsdom) — the whole suite runs in well under a second
+npm run test:watch # re-run tests on change
+npm run build      # optimized production bundle in dist/
+npm run preview    # serve the production build locally
+```
+
+The tests in `tests/` import the real modules and cover the HTML sanitizer's
+XSS vectors, the API client (auth header, URL/param building, error mapping,
+OPML raw bodies, abort signals), state derivations and persistence, category
+ordering, and entry-list query building and row rendering.
 
 ## Notes
 

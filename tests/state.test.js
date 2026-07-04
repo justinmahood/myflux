@@ -1,7 +1,6 @@
 /* State tests: derived values, events, prefs persistence.
- * index.html snapshots and restores all myflux.* localStorage keys, so
- * these tests can write real prefs without clobbering app state. */
-import { test, assert, assertEqual } from "./runner.js";
+ * Vitest's jsdom environment provides a fresh localStorage per test file. */
+import { test, expect } from "vitest";
 import { state } from "../js/state.js";
 
 function fixtureFeeds() {
@@ -15,20 +14,20 @@ function fixtureFeeds() {
 
 test("state: feedsById map and feedTitle lookup", () => {
   fixtureFeeds();
-  assertEqual(state.feedTitle(2), "Feed Two");
-  assertEqual(state.feedTitle(999), "");
+  expect(state.feedTitle(2)).toBe("Feed Two");
+  expect(state.feedTitle(999)).toBe("");
 });
 
 test("state: unreadTotal sums all feeds", () => {
   fixtureFeeds();
-  assertEqual(state.unreadTotal(), 14);
+  expect(state.unreadTotal()).toBe(14);
 });
 
 test("state: categoryUnread sums only that category's feeds", () => {
   fixtureFeeds();
-  assertEqual(state.categoryUnread(10), 7);
-  assertEqual(state.categoryUnread(20), 7);
-  assertEqual(state.categoryUnread(999), 0);
+  expect(state.categoryUnread(10)).toBe(7);
+  expect(state.categoryUnread(20)).toBe(7);
+  expect(state.categoryUnread(999)).toBe(0);
 });
 
 test("state: emit dispatches CustomEvent with detail", () => {
@@ -37,7 +36,7 @@ test("state: emit dispatches CustomEvent with detail", () => {
   state.addEventListener("test-event", handler);
   state.emit("test-event", { x: 1 });
   state.removeEventListener("test-event", handler);
-  assertEqual(got, { x: 1 });
+  expect(got).toEqual({ x: 1 });
 });
 
 test("state: prefs round-trip through localStorage", () => {
@@ -51,21 +50,26 @@ test("state: prefs round-trip through localStorage", () => {
   state.prefs.categoryOrder = [];
   state.loadPrefs();
 
-  assertEqual(state.prefs.theme, "dark");
-  assertEqual(state.prefs.unreadOnly, false);
-  assertEqual(state.prefs.categoryOrder, [3, 1, 2]);
+  expect(state.prefs.theme).toBe("dark");
+  expect(state.prefs.unreadOnly).toBe(false);
+  expect(state.prefs.categoryOrder).toEqual([3, 1, 2]);
+});
+
+test("state: corrupt prefs JSON keeps defaults", () => {
+  localStorage.setItem("myflux.prefs", "{not json");
+  expect(() => state.loadPrefs()).not.toThrow();
 });
 
 test("state: creds save/load/clear", () => {
   state.saveCreds("https://mf.test", "key123");
   state.creds = null;
-  assertEqual(state.loadCreds(), { url: "https://mf.test", key: "key123" });
+  expect(state.loadCreds()).toEqual({ url: "https://mf.test", key: "key123" });
   state.clearCreds();
-  assertEqual(state.loadCreds(), null);
+  expect(state.loadCreds()).toBeNull();
 });
 
 test("state: icon cache set/get", () => {
   state.icons.set(42, "data:image/png;base64,AA==");
-  assertEqual(state.icons.get(42), "data:image/png;base64,AA==");
-  assertEqual(state.icons.get(43), undefined);
+  expect(state.icons.get(42)).toBe("data:image/png;base64,AA==");
+  expect(state.icons.get(43)).toBeUndefined();
 });
