@@ -13,6 +13,7 @@
       theme: "auto",      // auto | light | dark
       unreadOnly: true,
       collapsed: {},       // categoryId -> true
+      categoryOrder: [],   // categoryIds in display order; others sort after, A-Z
     },
 
     user: null,

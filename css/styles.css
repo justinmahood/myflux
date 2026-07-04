@@ -381,6 +381,12 @@ kbd {
 
 .cat-fold:hover { background: var(--bg-hover); }
 
+.cat-group.dragging {
+  opacity: 0.45;
+}
+
+.cat-group.dragging .cat-feeds { pointer-events: none; }
+
 .cat-chevron {
   transition: transform 0.15s;
 }

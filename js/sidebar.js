@@ -61,6 +61,7 @@
 
       const tree = document.getElementById("feed-tree");
       tree.textContent = "";
+      this.bindTreeDrag(tree);
       const feedsByCat = new Map();
       for (const feed of state().feeds) {
         const catId = feed.category ? feed.category.id : 0;
@@ -68,9 +69,13 @@
         feedsByCat.get(catId).push(feed);
       }
 
-      for (const cat of state().categories) {
+      for (const cat of this.orderedCategories()) {
         const feeds = feedsByCat.get(cat.id) || [];
         if (!feeds.length) continue;
+
+        const group = document.createElement("div");
+        group.className = "cat-group";
+        group.dataset.catId = cat.id;
 
         const header = document.createElement("div");
         header.className = "cat-header";
@@ -88,7 +93,8 @@
         header.addEventListener("click", () => {
           App.list.show({ type: "category", id: cat.id, title: cat.title });
         });
-        tree.appendChild(header);
+        this.makeDraggable(header, group);
+        group.appendChild(header);
 
         const container = document.createElement("div");
         container.className = "cat-feeds";
@@ -97,7 +103,8 @@
         for (const feed of feeds) {
           container.appendChild(this.feedItem(feed));
         }
-        tree.appendChild(container);
+        group.appendChild(container);
+        tree.appendChild(group);
       }
 
       this.updateBadges();
@@ -123,6 +130,57 @@
 
     placeholderIcon() {
       return "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%23c6cacd'/%3E%3Cpath d='M4.5 11a1 1 0 1 0 0-.01M4.5 7.5A4 4 0 0 1 8.5 11.5M4.5 4a7.5 7.5 0 0 1 7.5 7.5' fill='none' stroke='white' stroke-width='1.4' stroke-linecap='round'/%3E%3C/svg%3E";
+    },
+
+    /* Custom order from prefs first; categories not in the list follow, A-Z. */
+    orderedCategories() {
+      const order = state().prefs.categoryOrder || [];
+      return [...state().categories].sort((a, b) => {
+        const ia = order.indexOf(a.id);
+        const ib = order.indexOf(b.id);
+        if (ia !== -1 && ib !== -1) return ia - ib;
+        if (ia !== -1) return -1;
+        if (ib !== -1) return 1;
+        return a.title.localeCompare(b.title);
+      });
+    },
+
+    makeDraggable(header, group) {
+      header.draggable = true;
+      header.addEventListener("dragstart", (e) => {
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/plain", group.dataset.catId);
+        group.classList.add("dragging");
+      });
+      header.addEventListener("dragend", () => {
+        group.classList.remove("dragging");
+        this.saveOrder();
+      });
+    },
+
+    bindTreeDrag(tree) {
+      if (tree.dataset.dndBound) return;
+      tree.dataset.dndBound = "1";
+      tree.addEventListener("dragover", (e) => {
+        const dragging = tree.querySelector(".cat-group.dragging");
+        if (!dragging) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        const target = e.target.closest(".cat-group");
+        if (!target || target === dragging) return;
+        const rect = target.getBoundingClientRect();
+        const after = e.clientY > rect.top + rect.height / 2;
+        tree.insertBefore(dragging, after ? target.nextSibling : target);
+      });
+      tree.addEventListener("drop", (e) => e.preventDefault());
+    },
+
+    saveOrder() {
+      const ids = [...document.querySelectorAll("#feed-tree .cat-group")]
+        .map((g) => Number(g.dataset.catId));
+      if (!ids.length) return;
+      state().prefs.categoryOrder = ids;
+      state().savePrefs();
     },
 
     toggleCategory(catId, header) {
