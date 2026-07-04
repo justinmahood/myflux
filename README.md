@@ -15,7 +15,8 @@ plain HTML, CSS, and JavaScript. No frameworks, no build step, no dependencies.
 - Three-pane layout: sources sidebar, magazine-style article list, reading pane
 - Smart feeds: **All**, **Today**, **Starred**, plus collapsible categories with
   per-feed favicons and unread counts — drag a category header to reorder
-  (the order is remembered in the browser)
+  (the order is remembered in the browser), or drag a feed onto another
+  category to move it there
 - Infinite scroll, unread-only ⇄ all toggle, full-text search, mark-all-as-read
 - Star, read/unread toggle, "download full content" (Miniflux's original-page scraper)
 - Feed management: subscribe by website or feed URL (with feed discovery),

@@ -365,6 +365,15 @@ kbd {
 
 .cat-group.dragging .cat-feeds { pointer-events: none; }
 
+.feed-row.dragging-feed { opacity: 0.45; }
+
+.cat-group.drop-target {
+  background: var(--accent-tint);
+  border-radius: 8px;
+  outline: 1.5px dashed var(--accent);
+  outline-offset: -1.5px;
+}
+
 .cat-chevron {
   transition: transform 0.15s;
 }

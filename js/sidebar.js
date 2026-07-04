@@ -135,6 +135,22 @@ export const sidebar = {
       manage.openEditFeed(feed);
     });
 
+    // Drag a feed onto another category to move it there.
+    row.draggable = true;
+    row.addEventListener("dragstart", (e) => {
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", String(feed.id));
+      this.drag = { type: "feed", feedId: feed.id };
+      row.classList.add("dragging-feed");
+      this.startAutoScroll(e.clientY);
+    });
+    row.addEventListener("dragend", () => {
+      row.classList.remove("dragging-feed");
+      this.stopAutoScroll();
+      this.setDropTarget(null);
+      this.drag = null;
+    });
+
     row.append(btn, kebab);
     return row;
   },
@@ -156,19 +172,32 @@ export const sidebar = {
     });
   },
 
+  /* Active sidebar drag: { type: "category" } or { type: "feed", feedId }. */
+  drag: null,
+  dropTargetEl: null,
+
   makeDraggable(header, group) {
     header.draggable = true;
     header.addEventListener("dragstart", (e) => {
       e.dataTransfer.effectAllowed = "move";
       e.dataTransfer.setData("text/plain", group.dataset.catId);
+      this.drag = { type: "category" };
       group.classList.add("dragging");
       this.startAutoScroll(e.clientY);
     });
     header.addEventListener("dragend", () => {
       group.classList.remove("dragging");
       this.stopAutoScroll();
+      this.drag = null;
       this.saveOrder();
     });
+  },
+
+  setDropTarget(group) {
+    if (this.dropTargetEl === group) return;
+    this.dropTargetEl?.classList.remove("drop-target");
+    this.dropTargetEl = group;
+    group?.classList.add("drop-target");
   },
 
   /* Scroll the sidebar while a drag hovers near its top/bottom edge —
@@ -181,7 +210,7 @@ export const sidebar = {
     const MAX_SPEED = 16;  // px per frame at the very edge
     this.autoScroll.y = initialY;
     const step = () => {
-      if (!document.querySelector(".cat-group.dragging")) {
+      if (!this.drag) {
         this.stopAutoScroll();
         return;
       }
@@ -211,22 +240,37 @@ export const sidebar = {
     // Track the pointer over the whole scroll area (smart feeds included)
     // so edge auto-scroll works wherever the drag hovers.
     tree.closest(".sidebar-scroll").addEventListener("dragover", (e) => {
-      if (!tree.querySelector(".cat-group.dragging")) return;
+      if (!this.drag) return;
       e.preventDefault();
       this.autoScroll.y = e.clientY;
     });
     tree.addEventListener("dragover", (e) => {
-      const dragging = tree.querySelector(".cat-group.dragging");
-      if (!dragging) return;
+      if (!this.drag) return;
       e.preventDefault();
       e.dataTransfer.dropEffect = "move";
-      const target = e.target.closest(".cat-group");
-      if (!target || target === dragging) return;
-      const rect = target.getBoundingClientRect();
-      const after = e.clientY > rect.top + rect.height / 2;
-      tree.insertBefore(dragging, after ? target.nextSibling : target);
+      if (this.drag.type === "category") {
+        const dragging = tree.querySelector(".cat-group.dragging");
+        const target = e.target.closest(".cat-group");
+        if (!dragging || !target || target === dragging) return;
+        const rect = target.getBoundingClientRect();
+        const after = e.clientY > rect.top + rect.height / 2;
+        tree.insertBefore(dragging, after ? target.nextSibling : target);
+      } else {
+        // Feed drag: highlight the hovered category unless it's already home.
+        const group = e.target.closest(".cat-group");
+        const currentCatId = state.feedsById.get(this.drag.feedId)?.category?.id;
+        this.setDropTarget(
+          group && Number(group.dataset.catId) !== currentCatId ? group : null);
+      }
     });
-    tree.addEventListener("drop", (e) => e.preventDefault());
+    tree.addEventListener("drop", (e) => {
+      e.preventDefault();
+      if (this.drag?.type === "feed") {
+        const group = e.target.closest(".cat-group");
+        if (group) manage.moveFeed(this.drag.feedId, Number(group.dataset.catId));
+      }
+      this.setDropTarget(null);
+    });
   },
 
   saveOrder() {

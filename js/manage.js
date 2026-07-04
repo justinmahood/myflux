@@ -201,6 +201,27 @@ export const manage = {
     }
   },
 
+  /* Move a feed to another category (sidebar drag-and-drop). */
+  async moveFeed(feedId, categoryId) {
+    const feed = state.feedsById.get(feedId);
+    const target = state.categories.find((c) => c.id === categoryId);
+    if (!feed || !target || feed.category?.id === categoryId) return false;
+    const previousCatId = feed.category?.id;
+    try {
+      await api.updateFeed(feedId, { category_id: categoryId });
+      await sidebar.load();
+      const sel = state.selection;
+      if (sel.type === "category" && (sel.id === categoryId || sel.id === previousCatId)) {
+        list.show({ ...sel }); // membership of the open category changed
+      }
+      toast(`Moved “${feed.title}” to ${target.title}`);
+      return true;
+    } catch (err) {
+      toast(`Could not move feed — ${err.message}`, true);
+      return false;
+    }
+  },
+
   /* ---------- categories & OPML ---------- */
 
   openManage() {
