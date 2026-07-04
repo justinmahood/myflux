@@ -116,6 +116,7 @@
     App.list.init();
     App.reader.init();
     App.shortcuts.init();
+    App.manage.init();
 
     document.getElementById("login-form").addEventListener("submit", handleLogin);
     document.getElementById("logout-btn").addEventListener("click", logout);

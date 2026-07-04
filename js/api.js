@@ -27,7 +27,7 @@
       return url;
     },
 
-    async request(method, path, { params, body } = {}) {
+    async request(method, path, { params, body, rawBody } = {}) {
       const url = new URL(this.base + "/v1" + path);
       if (params) {
         for (const [k, v] of Object.entries(params)) {
@@ -40,7 +40,7 @@
       const res = await fetch(url, {
         method,
         headers,
-        body: body !== undefined ? JSON.stringify(body) : undefined,
+        body: body !== undefined ? JSON.stringify(body) : rawBody,
       });
 
       if (!res.ok) {
@@ -51,11 +51,14 @@
         throw new ApiError(res.status, message);
       }
       if (res.status === 204) return null;
-      return res.json();
+      const type = res.headers.get("Content-Type") || "";
+      return type.includes("json") ? res.json() : res.text();
     },
 
     get(path, params) { return this.request("GET", path, { params }); },
     put(path, body, params) { return this.request("PUT", path, { body, params }); },
+    post(path, body) { return this.request("POST", path, { body }); },
+    del(path) { return this.request("DELETE", path); },
 
     // --- Endpoints ---
     me() { return this.get("/me"); },
@@ -77,6 +80,22 @@
     markFeedRead(feedId) { return this.put(`/feeds/${feedId}/mark-all-as-read`); },
     markCategoryRead(catId) { return this.put(`/categories/${catId}/mark-all-as-read`); },
     markUserRead(userId) { return this.put(`/users/${userId}/mark-all-as-read`); },
+
+    // --- feed & category management ---
+    discover(url) { return this.post("/discover", { url }); },
+    createFeed(feedUrl, categoryId) {
+      return this.post("/feeds", { feed_url: feedUrl, category_id: categoryId });
+    },
+    updateFeed(feedId, changes) { return this.put(`/feeds/${feedId}`, changes); },
+    deleteFeed(feedId) { return this.del(`/feeds/${feedId}`); },
+    refreshFeed(feedId) { return this.put(`/feeds/${feedId}/refresh`); },
+
+    createCategory(title) { return this.post("/categories", { title }); },
+    updateCategory(catId, title) { return this.put(`/categories/${catId}`, { title }); },
+    deleteCategory(catId) { return this.del(`/categories/${catId}`); },
+
+    exportOpml() { return this.get("/export"); },
+    importOpml(xml) { return this.request("POST", "/import", { rawBody: xml }); },
   };
 
   App.api = api;

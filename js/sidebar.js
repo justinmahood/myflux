@@ -112,6 +112,9 @@
     },
 
     feedItem(feed) {
+      const row = document.createElement("div");
+      row.className = "feed-row";
+
       const btn = document.createElement("button");
       btn.className = "side-item";
       btn.dataset.feedId = feed.id;
@@ -125,7 +128,19 @@
       btn.addEventListener("click", () => {
         App.list.show({ type: "feed", id: feed.id, title: feed.title });
       });
-      return btn;
+
+      const kebab = document.createElement("button");
+      kebab.className = "feed-kebab";
+      kebab.title = "Edit feed";
+      kebab.innerHTML =
+        '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>';
+      kebab.addEventListener("click", (e) => {
+        e.stopPropagation();
+        App.manage.openEditFeed(feed);
+      });
+
+      row.append(btn, kebab);
+      return row;
     },
 
     placeholderIcon() {

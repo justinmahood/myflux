@@ -18,6 +18,9 @@ plain HTML, CSS, and JavaScript. No frameworks, no build step, no dependencies.
   (the order is remembered in the browser)
 - Infinite scroll, unread-only ⇄ all toggle, full-text search, mark-all-as-read
 - Star, read/unread toggle, "download full content" (Miniflux's original-page scraper)
+- Feed management: subscribe by website or feed URL (with feed discovery),
+  rename/re-categorize/unsubscribe feeds, create/rename/delete categories,
+  OPML import/export
 - Feedly-style keyboard shortcuts: `j`/`k`, `m`, `s`, `v`, `r`, `/`, `?`
 - Light/dark theme (follows the system, manual override)
 - Responsive: panes collapse to a drill-in flow on narrow screens
@@ -44,6 +47,7 @@ and your API key.
 
 - Your server URL and API key are stored in the browser's `localStorage` and sent
   only to your Miniflux server. Use HTTPS.
-- This is a reader: subscriptions and categories are still managed in the Miniflux UI.
 - Miniflux refreshes feeds on its own schedule; the refresh button re-reads from the
   server, it does not trigger a crawl.
+- Deleting a category also deletes its feeds and their entries (that is how the
+  Miniflux API behaves); the app warns before doing it.
