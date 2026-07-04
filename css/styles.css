@@ -1,57 +1,26 @@
-/* ============ Theme ============ */
+/* ============ Theme ============
+ * One palette via light-dark(). "Auto" follows the system through
+ * color-scheme: light dark; the manual override just forces the scheme. */
 
 :root {
-  --bg: #ffffff;
-  --bg-alt: #f5f6f7;
-  --bg-hover: #ececee;
-  --border: #e4e6e8;
-  --text: #1f2328;
-  --text-muted: #71767c;
-  --text-faint: #9aa0a6;
-  --accent: #2bb24c;
-  --accent-hover: #249a41;
-  --accent-tint: #e9f7ed;
-  --danger: #d64545;
-  --shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
-  --thumb-bg: #e9ebed;
-  color-scheme: light;
+  color-scheme: light dark;
+  --bg: light-dark(#ffffff, #17191c);
+  --bg-alt: light-dark(#f5f6f7, #1e2125);
+  --bg-hover: light-dark(#ececee, #282c31);
+  --border: light-dark(#e4e6e8, #2c3036);
+  --text: light-dark(#1f2328, #e6e8ea);
+  --text-muted: light-dark(#71767c, #9aa1a9);
+  --text-faint: light-dark(#9aa0a6, #6b7178);
+  --accent: light-dark(#2bb24c, #34c85a);
+  --accent-hover: light-dark(#249a41, #4bd66e);
+  --accent-tint: light-dark(#e9f7ed, #1d2f22);
+  --danger: light-dark(#d64545, #e06c6c);
+  --shadow: 0 8px 30px light-dark(rgba(0, 0, 0, 0.12), rgba(0, 0, 0, 0.5));
+  --thumb-bg: light-dark(#e9ebed, #2a2e33);
 }
 
-:root[data-theme="dark"] {
-  --bg: #17191c;
-  --bg-alt: #1e2125;
-  --bg-hover: #282c31;
-  --border: #2c3036;
-  --text: #e6e8ea;
-  --text-muted: #9aa1a9;
-  --text-faint: #6b7178;
-  --accent: #34c85a;
-  --accent-hover: #4bd66e;
-  --accent-tint: #1d2f22;
-  --danger: #e06c6c;
-  --shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
-  --thumb-bg: #2a2e33;
-  color-scheme: dark;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #17191c;
-    --bg-alt: #1e2125;
-    --bg-hover: #282c31;
-    --border: #2c3036;
-    --text: #e6e8ea;
-    --text-muted: #9aa1a9;
-    --text-faint: #6b7178;
-    --accent: #34c85a;
-    --accent-hover: #4bd66e;
-    --accent-tint: #1d2f22;
-    --danger: #e06c6c;
-    --shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
-    --thumb-bg: #2a2e33;
-    color-scheme: dark;
-  }
-}
+:root[data-theme="light"] { color-scheme: light; }
+:root[data-theme="dark"] { color-scheme: dark; }
 
 /* ============ Base ============ */
 
@@ -933,28 +902,23 @@ kbd {
 
 .new-cat-form input { flex: 1; }
 
-/* ============ Overlay & toast ============ */
+/* ============ Help popover & toast ============ */
 
-.overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.45);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-}
-
-.overlay-card {
+#help-overlay {
   background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
   border-radius: 14px;
   padding: 28px 32px;
   box-shadow: var(--shadow);
-  max-width: 360px;
-  width: calc(100% - 40px);
+  width: min(360px, calc(100vw - 40px));
 }
 
-.overlay-card h2 { margin: 0 0 16px; font-size: 18px; }
+#help-overlay::backdrop {
+  background: rgba(0, 0, 0, 0.45);
+}
+
+#help-overlay h2 { margin: 0 0 16px; font-size: 18px; }
 
 .shortcut-table {
   width: 100%;

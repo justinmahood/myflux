@@ -1,107 +1,105 @@
-/* Central app state, tiny pub/sub, and localStorage persistence. */
-(function () {
-  "use strict";
-  window.App = window.App || {};
+/* Central app state with EventTarget-based events and localStorage persistence. */
 
-  const CREDS_KEY = "myflux.creds";
-  const PREFS_KEY = "myflux.prefs";
-  const ICONS_KEY = "myflux.icons";
+const CREDS_KEY = "myflux.creds";
+const PREFS_KEY = "myflux.prefs";
+const ICONS_KEY = "myflux.icons";
 
-  const state = {
-    creds: null, // { url, key }
-    prefs: {
-      theme: "auto",      // auto | light | dark
-      unreadOnly: true,
-      collapsed: {},       // categoryId -> true
-      categoryOrder: [],   // categoryIds in display order; others sort after, A-Z
-    },
+class IconCache {
+  #icons = new Map(); // iconId -> data URL
 
-    user: null,
-    categories: [],
-    feeds: [],
-    feedsById: new Map(),
-    counters: { reads: {}, unreads: {} },
+  constructor() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(ICONS_KEY)) ?? {};
+      for (const [id, data] of Object.entries(saved)) this.#icons.set(Number(id), data);
+    } catch { /* start empty */ }
+  }
 
-    selection: { type: "all", id: null, title: "All" },
-    entries: [],
-    selectedEntryId: null,
-    search: "",
+  get(iconId) { return this.#icons.get(iconId); }
 
-    // --- events ---
-    _listeners: {},
-    on(event, fn) {
-      (this._listeners[event] = this._listeners[event] || []).push(fn);
-    },
-    emit(event, data) {
-      for (const fn of this._listeners[event] || []) fn(data);
-    },
+  set(iconId, dataUrl) {
+    this.#icons.set(iconId, dataUrl);
+    if (dataUrl.length > 30_000) return; // don't persist oversized icons
+    try {
+      localStorage.setItem(ICONS_KEY, JSON.stringify(Object.fromEntries(this.#icons)));
+    } catch { /* quota exceeded: in-memory only */ }
+  }
+}
 
-    // --- derived ---
-    feedTitle(feedId) {
-      const feed = this.feedsById.get(feedId);
-      return feed ? feed.title : "";
-    },
-    unreadTotal() {
-      return Object.values(this.counters.unreads || {}).reduce((a, b) => a + b, 0);
-    },
-    categoryUnread(catId) {
-      let sum = 0;
-      for (const feed of this.feeds) {
-        if (feed.category && feed.category.id === catId) {
-          sum += this.counters.unreads[feed.id] || 0;
-        }
-      }
-      return sum;
-    },
+class AppState extends EventTarget {
+  creds = null; // { url, key }
+  prefs = {
+    theme: "auto",      // auto | light | dark
+    unreadOnly: true,
+    collapsed: {},       // categoryId -> true
+    categoryOrder: [],   // categoryIds in display order; others sort after, A-Z
+  };
 
-    // --- persistence ---
-    loadCreds() {
-      try {
-        this.creds = JSON.parse(localStorage.getItem(CREDS_KEY));
-      } catch (_) { this.creds = null; }
-      return this.creds;
-    },
-    saveCreds(url, key) {
-      this.creds = { url, key };
-      localStorage.setItem(CREDS_KEY, JSON.stringify(this.creds));
-    },
-    clearCreds() {
+  user = null;
+  categories = [];
+  feeds = [];
+  feedsById = new Map();
+  counters = { reads: {}, unreads: {} };
+
+  selection = { type: "all", id: null, title: "All" };
+  entries = [];
+  selectedEntryId = null;
+  search = "";
+
+  icons = new IconCache();
+
+  emit(type, detail) {
+    this.dispatchEvent(new CustomEvent(type, { detail }));
+  }
+
+  // --- derived ---
+  feedTitle(feedId) {
+    return this.feedsById.get(feedId)?.title ?? "";
+  }
+
+  unreadTotal() {
+    return Object.values(this.counters.unreads ?? {}).reduce((a, b) => a + b, 0);
+  }
+
+  categoryUnread(catId) {
+    return this.feeds
+      .filter((feed) => feed.category?.id === catId)
+      .reduce((sum, feed) => sum + (this.counters.unreads[feed.id] ?? 0), 0);
+  }
+
+  setFeeds(feeds) {
+    this.feeds = feeds;
+    this.feedsById = new Map(feeds.map((f) => [f.id, f]));
+  }
+
+  // --- persistence ---
+  loadCreds() {
+    try {
+      this.creds = JSON.parse(localStorage.getItem(CREDS_KEY));
+    } catch {
       this.creds = null;
-      localStorage.removeItem(CREDS_KEY);
-    },
+    }
+    return this.creds;
+  }
 
-    loadPrefs() {
-      try {
-        Object.assign(this.prefs, JSON.parse(localStorage.getItem(PREFS_KEY)) || {});
-      } catch (_) { /* keep defaults */ }
-    },
-    savePrefs() {
-      localStorage.setItem(PREFS_KEY, JSON.stringify(this.prefs));
-    },
+  saveCreds(url, key) {
+    this.creds = { url, key };
+    localStorage.setItem(CREDS_KEY, JSON.stringify(this.creds));
+  }
 
-    setFeeds(feeds) {
-      this.feeds = feeds;
-      this.feedsById = new Map(feeds.map((f) => [f.id, f]));
-    },
-  };
+  clearCreds() {
+    this.creds = null;
+    localStorage.removeItem(CREDS_KEY);
+  }
 
-  // Favicon cache: iconId -> data URL. Persisted best-effort.
-  const iconCache = new Map();
-  try {
-    const saved = JSON.parse(localStorage.getItem(ICONS_KEY)) || {};
-    for (const [id, data] of Object.entries(saved)) iconCache.set(Number(id), data);
-  } catch (_) { /* start empty */ }
+  loadPrefs() {
+    try {
+      Object.assign(this.prefs, JSON.parse(localStorage.getItem(PREFS_KEY)) ?? {});
+    } catch { /* keep defaults */ }
+  }
 
-  state.icons = {
-    get(iconId) { return iconCache.get(iconId); },
-    set(iconId, dataUrl) {
-      iconCache.set(iconId, dataUrl);
-      if (dataUrl.length > 30000) return; // don't persist oversized icons
-      try {
-        localStorage.setItem(ICONS_KEY, JSON.stringify(Object.fromEntries(iconCache)));
-      } catch (_) { /* quota exceeded: in-memory only */ }
-    },
-  };
+  savePrefs() {
+    localStorage.setItem(PREFS_KEY, JSON.stringify(this.prefs));
+  }
+}
 
-  App.state = state;
-})();
+export const state = new AppState();

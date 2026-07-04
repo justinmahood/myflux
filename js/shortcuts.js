@@ -1,72 +1,52 @@
-/* Global keyboard shortcuts and the help overlay. */
-(function () {
-  "use strict";
-  window.App = window.App || {};
+/* Global keyboard shortcuts. The help overlay itself is a native popover —
+ * open/close buttons, Esc, and light dismiss are all handled by the browser. */
+import { list } from "./entrylist.js";
+import { reader } from "./reader.js";
 
-  const shortcuts = {
-    init() {
-      const overlay = document.getElementById("help-overlay");
-      document.getElementById("help-btn").addEventListener("click", () => this.toggleHelp());
-      document.getElementById("help-close").addEventListener("click", () => this.toggleHelp(false));
-      overlay.addEventListener("click", (e) => {
-        if (e.target === overlay) this.toggleHelp(false);
-      });
+export const shortcuts = {
+  init() {
+    document.addEventListener("keydown", (e) => this.onKey(e));
+  },
 
-      document.addEventListener("keydown", (e) => this.onKey(e));
-    },
+  onKey(e) {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
 
-    toggleHelp(force) {
-      const overlay = document.getElementById("help-overlay");
-      overlay.hidden = force === undefined ? !overlay.hidden : !force;
-    },
+    const target = e.target;
+    const typing = target instanceof HTMLElement &&
+      (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable);
+    if (typing) return;
 
-    onKey(e) {
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
+    // Only when logged in and the app is visible
+    if (document.getElementById("app-view").hidden) return;
 
-      const target = e.target;
-      const typing = target instanceof HTMLElement &&
-        (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable);
-
-      if (e.key === "Escape") {
-        this.toggleHelp(false);
-        return;
-      }
-      if (typing) return;
-
-      // Only when logged in and the app is visible
-      if (document.getElementById("app-view").hidden) return;
-
-      switch (e.key) {
-        case "j":
-          e.preventDefault();
-          App.list.selectOffset(+1);
-          break;
-        case "k":
-          e.preventDefault();
-          App.list.selectOffset(-1);
-          break;
-        case "m":
-          App.reader.toggleRead();
-          break;
-        case "s":
-          App.reader.toggleStar();
-          break;
-        case "v":
-          App.reader.openOriginal();
-          break;
-        case "r":
-          App.list.refresh();
-          break;
-        case "/":
-          e.preventDefault();
-          document.getElementById("search-input").focus();
-          break;
-        case "?":
-          this.toggleHelp();
-          break;
-      }
-    },
-  };
-
-  App.shortcuts = shortcuts;
-})();
+    switch (e.key) {
+      case "j":
+        e.preventDefault();
+        list.selectOffset(+1);
+        break;
+      case "k":
+        e.preventDefault();
+        list.selectOffset(-1);
+        break;
+      case "m":
+        reader.toggleRead();
+        break;
+      case "s":
+        reader.toggleStar();
+        break;
+      case "v":
+        reader.openOriginal();
+        break;
+      case "r":
+        list.refresh();
+        break;
+      case "/":
+        e.preventDefault();
+        document.getElementById("search-input").focus();
+        break;
+      case "?":
+        document.getElementById("help-overlay").togglePopover();
+        break;
+    }
+  },
+};

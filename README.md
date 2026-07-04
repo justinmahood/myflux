@@ -34,11 +34,12 @@ plain HTML, CSS, and JavaScript. No frameworks, no build step, no dependencies.
 
 ## Running it
 
-There is no build step. Either:
+There is no build step, but the app uses ES modules, so it must be served
+over HTTP (browsers block module imports from `file://`). Any static server
+works:
 
-- open `index.html` directly in a browser, or
-- serve the directory statically, e.g. `python3 -m http.server 8422`,
-  or drop it behind any web server / static host
+- `python3 -m http.server 8422` in this directory, or
+- drop it behind any web server / static host
 
 Then sign in with your Miniflux server URL (e.g. `https://miniflux.example.com`)
 and your API key.
