@@ -21,7 +21,8 @@ plain HTML, CSS, and JavaScript. No frameworks, no build step, no dependencies.
 - Star, read/unread toggle, "download full content" (Miniflux's original-page scraper)
 - Feed management: subscribe by website or feed URL (with feed discovery),
   rename/re-categorize/unsubscribe feeds, create/rename/delete categories,
-  OPML import/export
+  OPML import/export — plus a bulk manager (sidebar gear → Feeds) with
+  filtering, multi-select, move-to-category, and mass unsubscribe
 - Feedly-style keyboard shortcuts: `j`/`k`, `m`, `s`, `v`, `r`, `/`, `?`
 - Light/dark theme (follows the system, manual override)
 - Responsive: panes collapse to a drill-in flow on narrow screens

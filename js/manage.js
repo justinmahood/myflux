@@ -28,10 +28,21 @@ const isDialogClose = (e) => e.submitter?.formMethod === "dialog";
 export const manage = {
   editingFeedId: null,
   discovered: null, // results of the last discover call, or null
+  selectedFeeds: new Set(), // feed ids checked in the Feeds tab
 
   init() {
     document.getElementById("add-feed-btn").addEventListener("click", () => this.openAddFeed());
     document.getElementById("manage-btn").addEventListener("click", () => this.openManage());
+
+    for (const btn of document.querySelectorAll("#manage-dialog .tab")) {
+      btn.addEventListener("click", () => this.switchTab(btn.dataset.tab));
+    }
+    document.getElementById("feed-filter")
+      .addEventListener("input", () => this.renderFeedManager());
+    document.getElementById("feed-select-all")
+      .addEventListener("change", (e) => this.toggleSelectAll(e.target.checked));
+    document.getElementById("bulk-move").addEventListener("click", () => this.bulkMove());
+    document.getElementById("bulk-unsub").addEventListener("click", () => this.bulkUnsubscribe());
 
     document.getElementById("add-feed-form").addEventListener("submit", (e) => {
       if (isDialogClose(e)) return;
@@ -227,8 +238,177 @@ export const manage = {
   openManage() {
     document.getElementById("manage-error").hidden = true;
     document.getElementById("new-cat-form").reset();
+    document.getElementById("feed-filter").value = "";
+    this.selectedFeeds.clear();
+    this.switchTab("feeds");
+    this.renderFeedManager();
     this.renderCategoryList();
     document.getElementById("manage-dialog").showModal();
+  },
+
+  switchTab(name) {
+    for (const btn of document.querySelectorAll("#manage-dialog .tab")) {
+      btn.setAttribute("aria-selected", String(btn.dataset.tab === name));
+    }
+    for (const panel of document.querySelectorAll("#manage-dialog .tab-panel")) {
+      panel.hidden = panel.id !== `tab-${name}`;
+    }
+  },
+
+  /* ---------- feeds tab ---------- */
+
+  renderFeedManager() {
+    // drop selections for feeds that no longer exist
+    this.selectedFeeds = new Set(
+      [...this.selectedFeeds].filter((id) => state.feedsById.has(id)));
+
+    const q = document.getElementById("feed-filter").value.trim().toLowerCase();
+    const frag = document.createDocumentFragment();
+    for (const cat of sidebar.orderedCategories()) {
+      const feeds = state.feeds.filter((f) =>
+        f.category?.id === cat.id &&
+        (!q || f.title.toLowerCase().includes(q) || cat.title.toLowerCase().includes(q)));
+      if (!feeds.length) continue;
+      const group = document.createElement("div");
+      group.className = "feed-mgr-group";
+      group.textContent = cat.title;
+      frag.appendChild(group);
+      for (const feed of feeds) frag.appendChild(this.feedManagerRow(feed));
+    }
+    if (!frag.childNodes.length) {
+      const empty = document.createElement("div");
+      empty.className = "feed-mgr-empty";
+      empty.textContent = state.feeds.length ? "No feeds match" : "No feeds yet";
+      frag.appendChild(empty);
+    }
+    document.getElementById("feed-mgr-list").replaceChildren(frag);
+    fillCategorySelect(document.getElementById("bulk-category"));
+    this.syncBulkBar();
+  },
+
+  feedManagerRow(feed) {
+    const row = document.createElement("div");
+    row.className = "feed-mgr-row";
+
+    const check = document.createElement("input");
+    check.type = "checkbox";
+    check.dataset.feedId = feed.id;
+    check.checked = this.selectedFeeds.has(feed.id);
+    check.addEventListener("change", () => {
+      if (check.checked) this.selectedFeeds.add(feed.id);
+      else this.selectedFeeds.delete(feed.id);
+      this.syncBulkBar();
+    });
+
+    const icon = document.createElement("img");
+    icon.className = "favicon";
+    icon.alt = "";
+    icon.src = sidebar.faviconFor(feed.id);
+
+    const title = document.createElement("span");
+    title.className = "feed-mgr-title";
+    title.textContent = feed.title;
+    title.title = feed.title;
+
+    const catSel = document.createElement("select");
+    catSel.setAttribute("aria-label", `Category for ${feed.title}`);
+    fillCategorySelect(catSel, feed.category?.id);
+    catSel.addEventListener("change", async () => {
+      const moved = await this.moveFeed(feed.id, Number(catSel.value));
+      if (moved) {
+        this.renderFeedManager();
+        this.renderCategoryList();
+      } else {
+        catSel.value = String(feed.category?.id);
+      }
+    });
+
+    // Clicking anywhere else on the row toggles its checkbox.
+    row.addEventListener("click", (e) => {
+      if (e.target === check || e.target.closest("select")) return;
+      check.checked = !check.checked;
+      check.dispatchEvent(new Event("change"));
+    });
+
+    row.append(check, icon, title, catSel);
+    return row;
+  },
+
+  toggleSelectAll(checked) {
+    for (const box of document.querySelectorAll(
+      '#feed-mgr-list input[type="checkbox"]')) {
+      box.checked = checked;
+      const id = Number(box.dataset.feedId);
+      if (checked) this.selectedFeeds.add(id);
+      else this.selectedFeeds.delete(id);
+    }
+    this.syncBulkBar();
+  },
+
+  syncBulkBar() {
+    const count = this.selectedFeeds.size;
+    document.getElementById("feed-sel-count").textContent =
+      count === 1 ? "1 selected" : `${count} selected`;
+    document.getElementById("bulk-move").disabled = count === 0;
+    document.getElementById("bulk-unsub").disabled = count === 0;
+    const visible = [...document.querySelectorAll(
+      '#feed-mgr-list input[type="checkbox"]')];
+    const checkedVisible = visible.filter((c) => c.checked).length;
+    const all = document.getElementById("feed-select-all");
+    all.checked = visible.length > 0 && checkedVisible === visible.length;
+    all.indeterminate = checkedVisible > 0 && checkedVisible < visible.length;
+  },
+
+  async bulkMove(categoryId = Number(document.getElementById("bulk-category").value)) {
+    const target = state.categories.find((c) => c.id === categoryId);
+    if (!target || this.selectedFeeds.size === 0) return;
+    const ids = [...this.selectedFeeds].filter(
+      (id) => state.feedsById.get(id)?.category?.id !== categoryId);
+    if (!ids.length) {
+      toast(`Selected feeds are already in ${target.title}`);
+      return;
+    }
+    const results = await Promise.allSettled(
+      ids.map((id) => api.updateFeed(id, { category_id: categoryId })));
+    const failed = results.filter((r) => r.status === "rejected").length;
+    this.selectedFeeds.clear();
+    await this.refreshAfterBulk();
+    const moved = ids.length - failed;
+    toast(failed
+      ? `Moved ${moved} to ${target.title} — ${failed} failed`
+      : `Moved ${moved} feed${moved === 1 ? "" : "s"} to ${target.title}`,
+      failed > 0);
+  },
+
+  async bulkUnsubscribe() {
+    const count = this.selectedFeeds.size;
+    if (!count) return;
+    if (!window.confirm(
+      `Unsubscribe ${count} feed${count === 1 ? "" : "s"}? Their entries will be deleted.`)) {
+      return;
+    }
+    const ids = [...this.selectedFeeds];
+    const results = await Promise.allSettled(ids.map((id) => api.deleteFeed(id)));
+    const failed = results.filter((r) => r.status === "rejected").length;
+    this.selectedFeeds.clear();
+    await this.refreshAfterBulk();
+    const removed = ids.length - failed;
+    toast(failed
+      ? `Unsubscribed ${removed} — ${failed} failed`
+      : `Unsubscribed ${removed} feed${removed === 1 ? "" : "s"}`,
+      failed > 0);
+  },
+
+  async refreshAfterBulk() {
+    await sidebar.load();
+    const sel = state.selection;
+    if (sel.type === "feed" && !state.feedsById.has(sel.id)) {
+      list.show({ type: "all", id: null, title: "All" });
+    } else if (sel.type !== "feed") {
+      list.show({ ...sel }); // membership or entry counts may have changed
+    }
+    this.renderFeedManager();
+    this.renderCategoryList();
   },
 
   renderCategoryList() {
@@ -279,6 +459,7 @@ export const manage = {
       } else {
         this.renderCategoryList();
       }
+      this.renderFeedManager();
     } catch (err) {
       input.value = cat.title;
       showError(errEl, err);
@@ -296,6 +477,7 @@ export const manage = {
       input.value = "";
       await sidebar.load();
       this.renderCategoryList();
+      this.renderFeedManager();
     } catch (err) {
       showError(errEl, err);
     }
@@ -313,6 +495,7 @@ export const manage = {
       await api.deleteCategory(cat.id);
       await sidebar.load();
       this.renderCategoryList();
+      this.renderFeedManager();
       const sel = state.selection;
       const gone = (sel.type === "category" && sel.id === cat.id) ||
         (sel.type === "feed" && !state.feedsById.has(sel.id));

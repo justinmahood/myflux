@@ -55,7 +55,7 @@
     </div>
     <div class="sidebar-footer">
       <span id="user-name" class="user-name"></span>
-      <button id="manage-btn" class="icon-btn" title="Manage categories &amp; OPML">
+      <button id="manage-btn" class="icon-btn" title="Manage feeds &amp; categories">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
       </button>
       <button id="logout-btn" class="text-btn">Sign out</button>
@@ -186,20 +186,45 @@
   </form>
 </dialog>
 
-<dialog id="manage-dialog" class="dlg">
+<dialog id="manage-dialog" class="dlg dlg-wide">
   <h2>Manage</h2>
-  <h3>Categories</h3>
-  <div id="cat-list" class="cat-list"></div>
-  <form id="new-cat-form" class="new-cat-form">
-    <input id="new-cat-title" type="text" placeholder="New category name" required>
-    <button type="submit" class="btn-secondary">Add</button>
-  </form>
-  <h3>OPML</h3>
-  <div class="dlg-row">
-    <button id="opml-export" class="btn-secondary" type="button">Export subscriptions</button>
-    <button id="opml-import" class="btn-secondary" type="button">Import OPML…</button>
-    <input id="opml-file" type="file" accept=".opml,.xml,text/xml" hidden>
+  <div class="tab-bar" role="tablist">
+    <button type="button" class="tab" data-tab="feeds" role="tab" aria-selected="true">Feeds</button>
+    <button type="button" class="tab" data-tab="categories" role="tab" aria-selected="false">Categories</button>
+    <button type="button" class="tab" data-tab="opml" role="tab" aria-selected="false">OPML</button>
   </div>
+
+  <section id="tab-feeds" class="tab-panel" role="tabpanel">
+    <input id="feed-filter" type="search" placeholder="Filter by feed or category name" aria-label="Filter feeds">
+    <div id="feed-mgr-list" class="feed-mgr-list"></div>
+    <div class="feed-mgr-bulk">
+      <label class="bulk-all">
+        <input type="checkbox" id="feed-select-all" aria-label="Select all visible feeds">
+        <span id="feed-sel-count">0 selected</span>
+      </label>
+      <span class="spacer"></span>
+      <select id="bulk-category" aria-label="Move selected feeds to category"></select>
+      <button type="button" id="bulk-move" class="btn-secondary" disabled>Move</button>
+      <button type="button" id="bulk-unsub" class="btn-danger" disabled>Unsubscribe</button>
+    </div>
+  </section>
+
+  <section id="tab-categories" class="tab-panel" role="tabpanel" hidden>
+    <div id="cat-list" class="cat-list"></div>
+    <form id="new-cat-form" class="new-cat-form">
+      <input id="new-cat-title" type="text" placeholder="New category name" required>
+      <button type="submit" class="btn-secondary">Add</button>
+    </form>
+  </section>
+
+  <section id="tab-opml" class="tab-panel" role="tabpanel" hidden>
+    <div class="dlg-row">
+      <button id="opml-export" class="btn-secondary" type="button">Export subscriptions</button>
+      <button id="opml-import" class="btn-secondary" type="button">Import OPML…</button>
+      <input id="opml-file" type="file" accept=".opml,.xml,text/xml" hidden>
+    </div>
+  </section>
+
   <p id="manage-error" class="dlg-error" hidden></p>
   <form method="dialog" class="dlg-actions">
     <span class="spacer"></span>
