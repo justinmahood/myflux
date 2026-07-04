@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>myflux tests</title>
+<style>
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    max-width: 760px;
+    margin: 40px auto;
+    padding: 0 20px;
+    background: light-dark(#fff, #17191c);
+    color: light-dark(#1f2328, #e6e8ea);
+  }
+  h1 { font-size: 20px; }
+  #summary { font-weight: 700; margin: 16px 0; }
+  #summary.pass { color: light-dark(#249a41, #4bd66e); }
+  #summary.fail { color: light-dark(#d64545, #e06c6c); }
+  ul { list-style: none; padding: 0; }
+  li { padding: 4px 8px; font-size: 13.5px; border-radius: 5px; }
+  li.pass::before { content: "✓ "; color: light-dark(#249a41, #4bd66e); }
+  li.fail { background: light-dark(#fdeaea, #3a2020); }
+  li.fail::before { content: "✗ "; color: light-dark(#d64545, #e06c6c); }
+</style>
+</head>
+<body>
+<h1>myflux tests</h1>
+<p id="summary">Running…</p>
+<ul id="results"></ul>
+
+<script type="module">
+  // The suites run against the real modules on the same origin as the app,
+  // so guard the app's localStorage: snapshot before, restore after.
+  const KEYS = Object.keys(localStorage).filter((k) => k.startsWith("myflux."));
+  const snapshot = Object.fromEntries(KEYS.map((k) => [k, localStorage.getItem(k)]));
+
+  const { runAll } = await import("./runner.js");
+  await import("./sanitize.test.js");
+  await import("./api.test.js");
+  await import("./state.test.js");
+  await import("./ui-logic.test.js");
+
+  try {
+    await runAll();
+  } finally {
+    for (const k of Object.keys(localStorage)) {
+      if (k.startsWith("myflux.")) localStorage.removeItem(k);
+    }
+    for (const [k, v] of Object.entries(snapshot)) localStorage.setItem(k, v);
+  }
+</script>
+</body>
+</html>

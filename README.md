@@ -44,6 +44,21 @@ works:
 Then sign in with your Miniflux server URL (e.g. `https://miniflux.example.com`)
 and your API key.
 
+## Testing
+
+The test suite is as dependency-free as the app: it's a plain web page that
+imports the real ES modules and runs assertions in the browser (the sanitizer
+needs a real DOM anyway).
+
+Serve the directory and open [`/tests/`](tests/index.html) — results render on
+the page, the tab title shows pass/fail, and `window.__testResults` holds a
+machine-readable summary for headless runs. The suite covers the HTML
+sanitizer's XSS vectors, the API client (auth header, URL/param building,
+error mapping, OPML raw bodies), state derivations and persistence, category
+ordering, and entry-list query building and row rendering. Tests snapshot and
+restore the app's `myflux.*` localStorage keys, so running them won't touch
+your login or preferences.
+
 ## Notes
 
 - Your server URL and API key are stored in the browser's `localStorage` and sent
