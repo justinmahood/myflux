@@ -25,7 +25,9 @@ plain HTML, CSS, and JavaScript. No frameworks, no build step, no dependencies.
   filtering, multi-select, move-to-category, and mass unsubscribe
 - Feedly-style keyboard shortcuts: `j`/`k`, `m`, `s`, `v`, `r`, `/`, `?`
 - Light/dark theme (follows the system, manual override)
-- Responsive: panes collapse to a drill-in flow on narrow screens
+- Responsive: panes collapse to a drill-in flow on narrow screens, and the
+  platform back gesture (Android back swipe/button, iOS edge swipe) walks
+  back out — article → list → exit, like a native app
 - Installable PWA: add it to your dock/home screen and it opens in its own
   window; the app shell loads offline
 - Feed content is sanitized with a strict allowlist before rendering

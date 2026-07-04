@@ -98,6 +98,7 @@ function logout() {
 state.loadPrefs();
 applyTheme();
 
+nav.init();
 list.init();
 reader.init();
 shortcuts.init();
