@@ -24,6 +24,8 @@ plain HTML, CSS, and JavaScript. No frameworks, no build step, no dependencies.
 - Feedly-style keyboard shortcuts: `j`/`k`, `m`, `s`, `v`, `r`, `/`, `?`
 - Light/dark theme (follows the system, manual override)
 - Responsive: panes collapse to a drill-in flow on narrow screens
+- Installable PWA: add it to your dock/home screen and it opens in its own
+  window; the app shell loads offline
 - Feed content is sanitized with a strict allowlist before rendering
 
 ## Requirements
@@ -59,6 +61,19 @@ The tests in `tests/` import the real modules and cover the HTML sanitizer's
 XSS vectors, the API client (auth header, URL/param building, error mapping,
 OPML raw bodies, abort signals), state derivations and persistence, category
 ordering, and entry-list query building and row rendering.
+
+## Installing as an app (PWA)
+
+Serve myflux over **HTTPS** (or localhost — service workers require a secure
+context), then:
+
+- **Desktop Chrome/Edge**: click the install icon in the address bar
+- **Android**: browser menu → *Add to Home screen* / *Install app*
+- **iOS Safari**: Share → *Add to Home Screen*
+
+The service worker caches the app shell with a network-first strategy: while
+online you always get the latest code, and when offline the app still starts
+(reading needs the Miniflux server, whose API is never intercepted or cached).
 
 ## Notes
 

@@ -195,6 +195,15 @@ kbd {
   height: 100dvh;
 }
 
+/* Installed-app mode on notched phones: keep content out of the status
+ * bar and home-indicator regions. */
+#app-view, #login-view {
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
 /* Flex/grid children default to min-height:auto, which lets content
  * blow past the pane instead of scrolling inside it. */
 #sidebar, #list-pane, #reader-pane,

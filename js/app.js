@@ -118,6 +118,11 @@ setInterval(() => {
 // Console/debugging handle (also used by the test harness).
 window.App = { api, state, sidebar, list, reader, manage, nav, toast };
 
+// PWA: needs a secure context (https or localhost); a no-op elsewhere.
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/sw.js").catch(() => { /* not fatal */ });
+}
+
 const creds = state.loadCreds();
 if (creds?.url && creds?.key) {
   api.configure(creds.url, creds.key);
