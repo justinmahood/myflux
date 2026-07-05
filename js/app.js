@@ -53,6 +53,7 @@ async function showApp() {
   document.getElementById("login-view").hidden = true;
   document.getElementById("app-view").hidden = false;
   document.getElementById("user-name").textContent = state.user.username;
+  nav.enterApp();
   await sidebar.load();
   list.show({ type: "all", id: null, title: "All" });
 }

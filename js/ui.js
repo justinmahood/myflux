@@ -14,12 +14,15 @@ export function toast(message, isError = false) {
 /* Pane switching for narrow screens; visually a no-op on wide layouts
  * (CSS-gated).
  *
- * On narrow screens the drill-in panes participate in browser history so
- * the platform back gesture (Android back swipe/button, iOS edge swipe)
- * walks back out: reader -> list, sidebar -> list, and back from the base
- * list leaves the app, like a native app. The sidebar and reader are
- * modeled as single entries pushed on top of the list, so the stack never
- * grows past two no matter how much you navigate. */
+ * On narrow screens the three panes form a hierarchy — sources (sidebar)
+ * -> list -> article — mirrored in browser history so the platform back
+ * gesture (Android back swipe/button, iOS edge swipe) walks back down:
+ * article -> list -> sources -> exit, like a native app. Moving deeper
+ * pushes an entry, moving shallower travels back through real entries,
+ * and same-level moves (j/k between articles) replace, so the stack never
+ * grows no matter how much you navigate. */
+const PANE_DEPTH = { sidebar: 0, list: 1, reader: 2 };
+
 export const nav = {
   current: "list",
 
@@ -28,10 +31,21 @@ export const nav = {
   },
 
   init() {
-    history.replaceState({ pane: "list" }, "");
     window.addEventListener("popstate", (e) => {
       this.set(e.state?.pane ?? "list");
     });
+  },
+
+  /* Called when the logged-in app becomes visible: establish the base
+   * stack, [sources, list] on narrow screens, so back from the opening
+   * list reveals the sources pane. */
+  enterApp() {
+    if (!this.isMobile()) {
+      history.replaceState({ pane: "list" }, "");
+      return;
+    }
+    history.replaceState({ pane: "sidebar" }, "");
+    history.pushState({ pane: "list" }, "");
   },
 
   /* Apply the pane visually without touching history. */
@@ -46,21 +60,16 @@ export const nav = {
       this.set(pane);
       return;
     }
-    const onPushedPane =
-      history.state?.pane === "sidebar" || history.state?.pane === "reader";
-    if (pane === "list") {
-      if (onPushedPane) {
-        history.back(); // popstate applies the pane
-        return;
-      }
-      this.set("list");
-    } else if (onPushedPane) {
-      // e.g. j/k opening the next article: reuse the entry, don't stack
+    const depth = PANE_DEPTH[history.state?.pane] ?? PANE_DEPTH.list;
+    const target = PANE_DEPTH[pane];
+    if (target === depth) {
       history.replaceState({ pane }, "");
       this.set(pane);
-    } else {
+    } else if (target > depth) {
       history.pushState({ pane }, "");
       this.set(pane);
+    } else {
+      history.go(target - depth); // popstate applies the pane
     }
   },
 
