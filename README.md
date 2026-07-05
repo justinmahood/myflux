@@ -21,6 +21,9 @@ plain HTML, CSS, and JavaScript. No frameworks, no dependencies.
 - Star, read/unread toggle, "download full content" (Miniflux's original-page scraper),
   save to a third-party service (Pocket, Wallabag, Readwise, … — whichever
   integration is configured in Miniflux; the button appears only if one is)
+- Share: native share sheet on mobile, copy-to-clipboard on desktop. Uses the
+  entry's public Miniflux share page when one exists; otherwise the original
+  article link (the Miniflux API can't create share links — that's web-UI-only)
 - Feed management: subscribe by website or feed URL (with feed discovery),
   rename/re-categorize/unsubscribe feeds, create/rename/delete categories,
   OPML import/export — plus a bulk manager (sidebar gear → Feeds) with

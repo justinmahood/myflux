@@ -24,6 +24,7 @@ export const reader = {
       starBtn: document.getElementById("star-btn"),
       readBtn: document.getElementById("read-btn"),
       saveBtn: document.getElementById("save-btn"),
+      shareBtn: document.getElementById("share-btn"),
       fetchBtn: document.getElementById("fetch-btn"),
       openBtn: document.getElementById("open-btn"),
     };
@@ -31,6 +32,7 @@ export const reader = {
     this.els.starBtn.addEventListener("click", () => this.toggleStar());
     this.els.readBtn.addEventListener("click", () => this.toggleRead());
     this.els.saveBtn.addEventListener("click", () => this.saveEntry());
+    this.els.shareBtn.addEventListener("click", () => this.shareEntry());
     this.els.openBtn.addEventListener("click", () => this.openOriginal());
     this.els.fetchBtn.addEventListener("click", () => this.fetchFullContent());
 
@@ -95,6 +97,8 @@ export const reader = {
     this.els.readBtn.title = isRead ? "Mark as unread (m)" : "Mark as read (m)";
     this.els.readBtn.classList.toggle("active", !isRead);
     this.els.saveBtn.hidden = !state.hasIntegrations;
+    this.els.shareBtn.title = entry.share_code
+      ? "Share (Miniflux public link)" : "Share (original link)";
   },
 
   toggleStar() {
@@ -109,6 +113,39 @@ export const reader = {
   openOriginal() {
     if (this.current?.url) {
       window.open(this.current.url, "_blank", "noopener");
+    }
+  },
+
+  // The Miniflux public share page when the entry already has a share code,
+  // else the original article URL. The REST API cannot mint share codes
+  // (that's a web-UI-session route), so codes exist only for entries shared
+  // from the Miniflux UI.
+  shareLink(entry) {
+    return entry.share_code
+      ? { url: api.shareUrl(entry.share_code), kind: "Miniflux public link" }
+      : { url: entry.url, kind: "original link" };
+  },
+
+  async shareEntry() {
+    if (!this.current) return;
+    const { url, kind } = this.shareLink(this.current);
+    if (!url) return;
+    // Mobile gets the native share sheet; desktop expects a plain copy.
+    if (nav.isMobile() && navigator.share) {
+      try {
+        await navigator.share({ title: this.current.title, url });
+      } catch (err) {
+        if (err.name !== "AbortError") { // Abort = user closed the sheet
+          toast(`Could not share — ${err.message}`, true);
+        }
+      }
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      toast(`Copied ${kind} to clipboard`);
+    } catch {
+      toast("Could not copy — clipboard needs a secure (HTTPS) context", true);
     }
   },
 

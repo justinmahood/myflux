@@ -77,6 +77,10 @@ export const api = {
   fetchContent(entryId) { return this.get(`/entries/${entryId}/fetch-content`); },
   saveEntry(entryId) { return this.post(`/entries/${entryId}/save`); },
   integrationsStatus() { return this.get("/integrations/status"); },
+  // Public share page for an entry that already has a share_code. Codes can
+  // only be created from the Miniflux web UI — the REST API has no endpoint
+  // for it (POST /entry/share/{id} is a session-cookie UI route).
+  shareUrl(shareCode) { return `${this.base}/share/${shareCode}`; },
 
   markFeedRead(feedId) { return this.put(`/feeds/${feedId}/mark-all-as-read`); },
   markCategoryRead(catId) { return this.put(`/categories/${catId}/mark-all-as-read`); },

@@ -164,6 +164,11 @@ ENTRIES[1]["content"] = (
 # One removed entry (should never show up)
 ENTRIES[3]["status"] = "removed"
 
+# A few entries "shared from the Miniflux web UI" — the REST API cannot
+# create share codes, so only these carry a public share link.
+for _e in (ENTRIES[0], ENTRIES[10], ENTRIES[25]):
+    _e["share_code"] = f"mockshare{_e['id']}"
+
 FULL_CONTENT = ("<h2>Full scraped content</h2><p>This came from fetch-content. "
                 f"</p><p>{LOREM}</p><p>{LOREM}</p><p>{LOREM}</p>")
 

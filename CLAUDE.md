@@ -37,7 +37,7 @@ One page ([index.html](index.html)), three singleton panes, one entry module.
 | `js/sanitize.js` | Allowlist sanitizer (builds a fresh tree; unknown tags unwrap, dangerous tags drop), `textOf()` snippets, `firstImage()` thumbnails |
 | `js/sidebar.js` | Left pane: smart feeds, category tree, unread badges, favicons, drag-and-drop (category reorder + feed→category move) with edge auto-scroll |
 | `js/entrylist.js` | Middle pane: magazine rows, infinite scroll, **the optimistic read/star mutations** (`setStatus`/`toggleStar`) shared with the reader |
-| `js/reader.js` | Right pane: sanitized article rendering, star/read/save-to-third-party/fetch-content/open actions |
+| `js/reader.js` | Right pane: sanitized article rendering, star/read/save-to-third-party/share/fetch-content/open actions |
 | `js/manage.js` | All dialogs: add feed (discover flow), edit feed, tabbed Manage (bulk feed manager, category CRUD, OPML), `moveFeed()` |
 | `js/shortcuts.js` | Global keymap: `j`/`k`/`m`/`s`/`S`/`v`/`r`, `/`, `?` |
 | `js/ui.js` | `toast()` + `nav` (mobile drill-in panes bound to the History API) |
@@ -79,6 +79,14 @@ module-level code that touches another module or the DOM.
     Miniflux **2.2.2**. Treat a failed probe as "integrations available"
     (`state.hasIntegrations` defaults `true`): hiding the save button is a
     hint, not a gate — the save call itself 400s with a readable message.
+  - **Share codes cannot be created via the REST API** (verified against
+    `internal/api/api.go`): `POST /entry/share/{id}` is a session-cookie
+    web-UI route with no `/v1` equivalent, so entries only carry a non-empty
+    `share_code` if shared from the Miniflux UI. The public page is
+    `GET {base}/share/{share_code}` (`api.shareUrl`); the reader's share
+    action falls back to the entry's original URL and labels which link
+    the user got. Don't try to call the UI route from the browser — it has
+    no CORS headers and Lax cookies won't ride cross-origin anyway.
 - **Optimistic updates** live only in `entrylist.js` (`setStatus`,
   `toggleStar`): mutate the entry + unread counters, emit `"entry-updated"`,
   revert + error-toast on API failure. Rows and the reader both react to that
