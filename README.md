@@ -1,7 +1,7 @@
 # myflux
 
-A Feedly-style three-pane web frontend for [Miniflux](https://miniflux.app), written in
-plain HTML, CSS, and JavaScript. No frameworks, no dependencies.
+A Feedly-style three-pane static web frontend for [Miniflux](https://miniflux.app), written in
+plain HTML, CSS, and JavaScript. No frameworks, no dependencies.  
 
 ```
 ┌──────────┬───────────────┬──────────────────────┐
