@@ -1,7 +1,8 @@
 /* Middle pane: magazine-style entry list with infinite scroll.
  * Also owns the optimistic read/star mutations shared with the reader. */
-import { api } from "./api.js";
+import { api, isNetworkError } from "./api.js";
 import { state } from "./state.js";
+import { offline } from "./offline.js";
 import { textOf, firstImage } from "./sanitize.js";
 import { sidebar } from "./sidebar.js";
 import { reader } from "./reader.js";
@@ -30,6 +31,7 @@ export const list = {
   total: 0,
   hasMore: false,
   loading: false,
+  offlineRendered: false, // current list came from the IndexedDB cache
   controller: null, // aborts the in-flight page load on reset
 
   els: {},
@@ -107,13 +109,18 @@ export const list = {
     this.els.unreadToggle.disabled = sel.type === "starred";
     this.els.unreadToggle.title = state.prefs.unreadOnly
       ? "Showing unread only — click for all" : "Showing all — click for unread only";
-    this.els.markAll.disabled = sel.type === "today" || sel.type === "starred";
+    this.els.markAll.disabled =
+      sel.type === "today" || sel.type === "starred" || state.offline;
   },
 
   refresh() {
     const svg = this.els.refresh.querySelector("svg");
     svg.classList.add("spin");
-    Promise.allSettled([this.load(true), sidebar.refreshCounters()]).then(() => {
+    // The probe first makes r/refresh the manual reconnect path: if the
+    // server answers, connectivity flips online before the loads run.
+    offline.probe().then(() =>
+      Promise.allSettled([this.load(true), sidebar.refreshCounters()])
+    ).then(() => {
       svg.classList.remove("spin");
     });
   },
@@ -147,6 +154,9 @@ export const list = {
   },
 
   async load(reset) {
+    // Known-offline: go straight to the cache instead of stalling on a TCP
+    // timeout per attempt ("wifi up, server down"). refresh() still probes.
+    if (state.offline) return this.renderCachedView();
     if (reset) {
       this.controller?.abort();
       this.controller = new AbortController();
@@ -171,6 +181,8 @@ export const list = {
 
       state.entries.push(...entries);
       this.els.rows.append(...entries.map((entry) => this.renderRow(entry)));
+      this.offlineRendered = false;
+      offline.persistEntries(entries); // fire-and-forget offline cache
 
       this.els.count.textContent = String(this.total);
       this.els.count.hidden = this.total === 0;
@@ -185,6 +197,7 @@ export const list = {
       }
     } catch (err) {
       if (controller.signal.aborted) return; // superseded by a newer load
+      if (isNetworkError(err)) return this.renderCachedView();
       this.setStatusMsg(`Could not load entries — ${err.message}`);
     } finally {
       if (!controller.signal.aborted) {
@@ -195,6 +208,24 @@ export const list = {
         this.observer.observe(this.els.sentinel);
       }
     }
+  },
+
+  /* Replace the list with the matching slice of the offline cache. Reset
+   * semantics even on a mid-scroll pagination failure: every row that was
+   * on screen was just persisted, so nothing visible is lost, and there is
+   * exactly one rendering mode to reason about. */
+  async renderCachedView() {
+    this.hasMore = false; // set before any await so the sentinel can't re-fire
+    const cached = await offline.loadCached(state.selection, state.prefs, state.search);
+    this.loading = false;
+    this.offset = cached.length;
+    this.total = cached.length;
+    this.offlineRendered = true;
+    state.entries = cached;
+    this.els.rows.replaceChildren(...cached.map((entry) => this.renderRow(entry)));
+    this.els.count.textContent = String(cached.length);
+    this.els.count.hidden = cached.length === 0;
+    this.setStatusMsg(cached.length ? null : "No cached articles for this view");
   },
 
   setStatusMsg(msg) {
@@ -322,6 +353,12 @@ export const list = {
     try {
       await api.updateEntries([entry.id], status);
     } catch (err) {
+      if (isNetworkError(err)) {
+        // Offline: keep the optimistic change and queue it for replay.
+        // The banner's pending count is the feedback — no toast.
+        await offline.enqueueStatus(entry.id, status, prev);
+        return;
+      }
       entry.status = prev;
       this.adjustUnread(entry.feed_id, prev === "unread" ? +1 : -1);
       state.emit("entry-updated", entry);
@@ -335,6 +372,10 @@ export const list = {
     try {
       await api.toggleBookmark(entry.id);
     } catch (err) {
+      if (isNetworkError(err)) {
+        await offline.enqueueStar(entry.id);
+        return;
+      }
       entry.starred = !entry.starred;
       state.emit("entry-updated", entry);
       toast(`Could not update star — ${err.message}`, true);
@@ -355,6 +396,7 @@ export const list = {
   },
 
   async markAllRead() {
+    if (state.offline) return toast("Not available offline", true);
     const sel = state.selection;
     if (!window.confirm(`Mark all entries in “${sel.title}” as read?`)) return;
     try {

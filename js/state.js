@@ -48,11 +48,21 @@ class AppState extends EventTarget {
   entries = [];
   selectedEntryId = null;
   search = "";
+  offline = false;
 
   icons = new IconCache();
 
   emit(type, detail) {
     this.dispatchEvent(new CustomEvent(type, { detail }));
+  }
+
+  // Flipped only from api.request (every call site benefits) and the window
+  // "offline" event; emits only on an actual transition.
+  setConnectivity(online) {
+    const offline = !online;
+    if (this.offline === offline) return;
+    this.offline = offline;
+    this.emit("connectivity", { offline });
   }
 
   // --- derived ---

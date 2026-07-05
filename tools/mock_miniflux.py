@@ -19,6 +19,9 @@ API_KEY = "test-key"
 # INTEGRATIONS=0 simulates a user with no save-to-third-party integration
 # configured (myflux should hide its save button and refuse the S shortcut).
 HAS_INTEGRATIONS = os.environ.get("INTEGRATIONS", "1") != "0"
+# FAIL_WRITES=1 makes every PUT return 500 — exercises the offline queue's
+# keep-ops-on-server-error branch while GETs still work.
+FAIL_WRITES = os.environ.get("FAIL_WRITES") == "1"
 
 random.seed(42)
 
@@ -444,6 +447,8 @@ class Handler(BaseHTTPRequestHandler):
         path = parsed.path
         if not self.authed():
             return
+        if FAIL_WRITES:
+            return self.reply(500, {"error_message": "simulated write failure"})
 
         if path == "/v1/entries":
             body = self.read_body()

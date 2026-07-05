@@ -2,6 +2,7 @@
  * and drag-and-drop category reordering. */
 import { api } from "./api.js";
 import { state } from "./state.js";
+import { offline } from "./offline.js";
 import { list } from "./entrylist.js";
 import { manage } from "./manage.js";
 
@@ -37,12 +38,14 @@ export const sidebar = {
     state.counters = counters ?? { reads: {}, unreads: {} };
     this.render();
     this.loadIcons();
+    offline.saveSnapshot(); // fire-and-forget offline boot data
   },
 
   async refreshCounters() {
     try {
       state.counters = (await api.counters()) ?? { reads: {}, unreads: {} };
       this.updateBadges();
+      offline.saveCounters(); // fire-and-forget
     } catch { /* transient; next refresh will catch up */ }
   },
 
@@ -329,6 +332,7 @@ export const sidebar = {
     for (const [iconId, feeds] of wanted) {
       let dataUrl = state.icons.get(iconId);
       if (!dataUrl) {
+        if (state.offline) continue; // cache-only; localStorage icons still show
         try {
           const icon = await api.icon(iconId);
           if (!icon?.data) continue;

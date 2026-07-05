@@ -1,4 +1,5 @@
 /* Miniflux REST API client. All methods return parsed JSON (or null for 204). */
+import { state } from "./state.js";
 
 export class ApiError extends Error {
   constructor(status, message) {
@@ -7,6 +8,11 @@ export class ApiError extends Error {
     this.status = status;
   }
 }
+
+// fetch rejects with TypeError only for network-level failures (aborts are
+// DOMException AbortError, our errors are ApiError) — that distinction is
+// what separates "offline" from "the server said no".
+export const isNetworkError = (err) => err instanceof TypeError;
 
 export const api = {
   base: null,
@@ -30,12 +36,20 @@ export const api = {
     const headers = { "X-Auth-Token": this.key };
     if (body !== undefined) headers["Content-Type"] = "application/json";
 
-    const res = await fetch(url, {
-      method,
-      headers,
-      body: body !== undefined ? JSON.stringify(body) : rawBody,
-      signal,
-    });
+    let res;
+    try {
+      res = await fetch(url, {
+        method,
+        headers,
+        body: body !== undefined ? JSON.stringify(body) : rawBody,
+        signal,
+      });
+    } catch (err) {
+      if (err.name !== "AbortError") state.setConnectivity(false);
+      throw err;
+    }
+    // The server answered — even an error status means we're reachable.
+    state.setConnectivity(true);
 
     if (!res.ok) {
       const message = await res.json().then((data) => data.error_message, () => null);

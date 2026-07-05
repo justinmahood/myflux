@@ -97,6 +97,9 @@ export const reader = {
     this.els.readBtn.title = isRead ? "Mark as unread (m)" : "Mark as read (m)";
     this.els.readBtn.classList.toggle("active", !isRead);
     this.els.saveBtn.hidden = !state.hasIntegrations;
+    // Server-side actions can't work offline; share/open stay usable.
+    this.els.saveBtn.disabled = state.offline;
+    this.els.fetchBtn.disabled = state.offline;
     this.els.shareBtn.title = entry.share_code
       ? "Share (Miniflux public link)" : "Share (original link)";
   },
@@ -154,6 +157,7 @@ export const reader = {
   // (202) and there is no saved/unsaved state to reflect.
   async saveEntry() {
     if (!this.current) return;
+    if (state.offline) return toast("Not available offline", true); // also the S shortcut
     if (!state.hasIntegrations) {
       toast("No third-party integration is configured in Miniflux", true);
       return;
@@ -172,6 +176,7 @@ export const reader = {
 
   async fetchFullContent() {
     if (!this.current) return;
+    if (state.offline) return toast("Not available offline", true);
     const entry = this.current;
     const svg = this.els.fetchBtn.querySelector("svg");
     svg.classList.add("spin");

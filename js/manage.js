@@ -75,6 +75,7 @@ export const manage = {
   /* ---------- add feed ---------- */
 
   openAddFeed() {
+    if (state.offline) return toast("Feed management needs a connection", true);
     const dlg = document.getElementById("add-feed-dialog");
     document.getElementById("add-feed-form").reset();
     document.getElementById("add-feed-error").hidden = true;
@@ -164,6 +165,7 @@ export const manage = {
   /* ---------- edit feed ---------- */
 
   openEditFeed(feed) {
+    if (state.offline) return toast("Feed management needs a connection", true);
     this.editingFeedId = feed.id;
     document.getElementById("edit-feed-title").value = feed.title;
     document.getElementById("edit-feed-url").value = feed.feed_url;
@@ -214,6 +216,10 @@ export const manage = {
 
   /* Move a feed to another category (sidebar drag-and-drop). */
   async moveFeed(feedId, categoryId) {
+    if (state.offline) {
+      toast("Feed management needs a connection", true);
+      return false;
+    }
     const feed = state.feedsById.get(feedId);
     const target = state.categories.find((c) => c.id === categoryId);
     if (!feed || !target || feed.category?.id === categoryId) return false;
@@ -236,6 +242,7 @@ export const manage = {
   /* ---------- categories & OPML ---------- */
 
   openManage() {
+    if (state.offline) return toast("Feed management needs a connection", true);
     document.getElementById("manage-error").hidden = true;
     document.getElementById("new-cat-form").reset();
     document.getElementById("feed-filter").value = "";

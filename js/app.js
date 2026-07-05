@@ -1,6 +1,7 @@
-/* Entry point: boot, login flow, theme. */
-import { api, ApiError } from "./api.js";
+/* Entry point: boot, login flow, theme, connectivity orchestration. */
+import { api, ApiError, isNetworkError } from "./api.js";
 import { state } from "./state.js";
+import { offline, applyQueueToCounters } from "./offline.js";
 import { sidebar } from "./sidebar.js";
 import { list } from "./entrylist.js";
 import { reader } from "./reader.js";
@@ -49,11 +50,18 @@ function showLogin(errorMsg) {
   }
 }
 
-async function showApp() {
+function revealApp() {
   document.getElementById("login-view").hidden = true;
   document.getElementById("app-view").hidden = false;
   document.getElementById("user-name").textContent = state.user.username;
   nav.enterApp();
+}
+
+async function showApp() {
+  revealApp();
+  // Replay offline changes BEFORE the first fetches, so the unread page
+  // doesn't resurrect entries read offline and counters post-date the sync.
+  await offline.flush();
   // Fire-and-forget: hide the save button if the server says no integration
   // is configured. Endpoint requires Miniflux 2.2.2+; on failure keep the
   // optimistic default (button visible).
@@ -62,6 +70,28 @@ async function showApp() {
     reader.syncButtons();
   }, () => {});
   await sidebar.load();
+  list.show({ type: "all", id: null, title: "All" });
+  navigator.storage?.persist?.().catch(() => {}); // resist storage eviction
+  offline.prefetch(); // newest unread, so offline works without browsing
+}
+
+/* No network, but we have a snapshot from a previous session: start the
+ * app read-mostly from the IndexedDB cache. */
+async function bootOffline(snapshot) {
+  state.user = snapshot.user;
+  state.categories = snapshot.categories ?? [];
+  state.setFeeds(snapshot.feeds ?? []);
+  state.hasIntegrations = snapshot.hasIntegrations ?? true;
+  const [queue, cached] = await Promise.all(
+    [offline.getQueue(), offline.getCachedEntries()]);
+  state.counters = applyQueueToCounters(
+    snapshot.counters ?? { reads: {}, unreads: {} },
+    queue,
+    new Map(cached.map((e) => [e.id, e])));
+  state.setConnectivity(false);
+  revealApp();
+  sidebar.render();
+  sidebar.loadIcons(); // cache-only while offline
   list.show({ type: "all", id: null, title: "All" });
 }
 
@@ -87,6 +117,11 @@ async function handleLogin(event) {
     api.configure(url, key);
     state.user = await api.me();
     state.saveCreds(api.base, key);
+    // A different account must not inherit the previous one's cached articles.
+    const snapshot = await offline.loadSnapshot();
+    if (snapshot && snapshot.accountKey !== offline.accountKey()) {
+      await offline.clearAll();
+    }
     await showApp();
   } catch (err) {
     showLogin(loginErrorMessage(err));
@@ -96,8 +131,10 @@ async function handleLogin(event) {
   }
 }
 
-function logout() {
+async function logout() {
   state.clearCreds();
+  // Cached articles are private data; destroy() is timeout-raced internally.
+  await offline.destroy().catch(() => {});
   location.reload();
 }
 
@@ -107,10 +144,24 @@ state.loadPrefs();
 applyTheme();
 
 nav.init();
+offline.init();
 list.init();
 reader.init();
 shortcuts.init();
 manage.init();
+
+// Reconnect orchestration (kept here so offline.js never imports panes):
+// coming back online replays the queue, refreshes counters, swaps a
+// cache-rendered list for fresh data, and tops up the offline cache.
+state.addEventListener("connectivity", async (e) => {
+  list.syncControls();
+  reader.syncButtons();
+  if (e.detail.offline) return;
+  await offline.flush();
+  sidebar.refreshCounters();
+  if (list.offlineRendered) list.show({ ...state.selection });
+  offline.prefetch();
+});
 
 document.getElementById("login-form").addEventListener("submit", handleLogin);
 document.getElementById("logout-btn").addEventListener("click", logout);
@@ -125,7 +176,7 @@ setInterval(() => {
 }, COUNTER_REFRESH_MS);
 
 // Console/debugging handle (also used by the test harness).
-window.App = { api, state, sidebar, list, reader, manage, nav, toast };
+window.App = { api, state, sidebar, list, reader, manage, nav, toast, offline };
 
 // PWA: needs a secure context (https or localhost); a no-op elsewhere.
 if ("serviceWorker" in navigator) {
@@ -139,8 +190,15 @@ if (creds?.url && creds?.key) {
     state.user = await api.me();
     await showApp();
   } catch (err) {
-    // Stored credentials no longer work (or server unreachable)
-    showLogin(loginErrorMessage(err));
+    // Server unreachable (covers mid-boot failures inside showApp too):
+    // start from the offline snapshot if one exists for this server.
+    const snapshot = isNetworkError(err) ? await offline.loadSnapshot() : null;
+    if (snapshot?.accountKey?.startsWith(`${api.base}:`)) {
+      await bootOffline(snapshot);
+    } else {
+      // Stored credentials no longer work (or server unreachable, no cache)
+      showLogin(loginErrorMessage(err));
+    }
   }
 } else {
   showLogin();

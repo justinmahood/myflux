@@ -32,8 +32,10 @@ One page ([index.html](index.html)), three singleton panes, one entry module.
 | File | Owns |
 |------|------|
 | `js/app.js` | Entry point: boot, login flow, theme cycling, SW registration. Assigns `window.App` (console/debug handle only — and the browser-verification harness uses it) |
-| `js/api.js` | Miniflux REST client. `X-Auth-Token` auth, base-URL normalization, every endpoint as a method, `ApiError`, abort-signal support |
-| `js/state.js` | `AppState extends EventTarget` singleton: creds/prefs (localStorage), feeds/categories/counters, selection, entries, `IconCache` |
+| `js/api.js` | Miniflux REST client. `X-Auth-Token` auth, base-URL normalization, every endpoint as a method, `ApiError`, abort-signal support, **connectivity classification** (`isNetworkError`, `setConnectivity` hooks) |
+| `js/state.js` | `AppState extends EventTarget` singleton: creds/prefs (localStorage), feeds/categories/counters, selection, entries, `IconCache`, `offline` flag + `setConnectivity()` |
+| `js/db.js` | Promise wrapper over IndexedDB (`myflux` DB: `entries`/`meta`/`queue` stores). Reads the `indexedDB` global lazily so tests can stub it |
+| `js/offline.js` | Offline data layer: cached-entry persistence, snapshots, **the pending-op queue + replay rules**, `filterCached()`, prefetch/prune, the offline banner. Imports only leaf modules (api/state/db/ui) |
 | `js/sanitize.js` | Allowlist sanitizer (builds a fresh tree; unknown tags unwrap, dangerous tags drop), `textOf()` snippets, `firstImage()` thumbnails |
 | `js/sidebar.js` | Left pane: smart feeds, category tree, unread badges, favicons, drag-and-drop (category reorder + feed→category move) with edge auto-scroll |
 | `js/entrylist.js` | Middle pane: magazine rows, infinite scroll, **the optimistic read/star mutations** (`setStatus`/`toggleStar`) shared with the reader |
@@ -93,12 +95,37 @@ module-level code that touches another module or the DOM.
   event. Route new mutations through this pattern; don't invent parallel paths.
 - **Deletion flows** must handle "the current selection no longer exists" —
   fall back to the All view (see `manage.deleteFeed`/`refreshAfterBulk`).
+- **Offline lives entirely at the app layer** (IndexedDB via `js/db.js` +
+  `js/offline.js`) — `sw.js` was deliberately NOT touched for it and still
+  never caches `/v1/`. New `js/` modules are runtime-cached by the SW
+  automatically; adding one does not require a `CACHE` bump.
+- **Connectivity is classified in exactly one place**: `api.request()`.
+  Network failure = `TypeError` from fetch (`isNetworkError`); any *served*
+  response (even 4xx/5xx) flips back online. `window` online/offline events
+  are hints only — "online" merely triggers `offline.probe()`; the flag
+  flips online only when a real request succeeds.
+- **The offline queue is fed only from `setStatus`/`toggleStar`** (their
+  network-failure branches). Rules: status ops coalesce latest-wins and
+  carry the ORIGINAL `prevStatus` — circling back deletes the op (this is
+  what makes `applyQueueToCounters` sound); star ops net out in pairs
+  because `PUT /v1/entries/{id}/bookmark` is a **toggle**, not idempotent.
+  Queue mutations are serialized (`offline.serialize`) — read-modify-write
+  across transactions must not interleave. Flush: network/5xx keep ops,
+  4xx drops them (poison-pill prevention). The `queue` store must never be
+  destructively migrated; `entries`/`meta` may be.
+- **Reconnect orchestration lives in app.js** (the `"connectivity"`
+  listener), keeping `offline.js` free of pane imports. On online boot the
+  flush runs **before** the first sidebar/list fetches. `logout()` destroys
+  the IndexedDB database (cached articles are private data) and
+  `offline.init()` must not touch the DB while logged out, or it re-creates
+  an empty shell right after that destroy.
 - **CSS:** one stylesheet, tokens in `:root` via `light-dark()`; manual theme
   override is just `data-theme` forcing `color-scheme`. The global
   `[hidden] { display: none !important; }` exists because class `display`
   rules beat the `hidden` attribute. Scroll containers inside flex/grid need
   `min-height: 0` (already applied — a classic silent breaker).
 - **localStorage keys:** `myflux.creds`, `myflux.prefs`, `myflux.icons`.
+  IndexedDB: one database `myflux` (stores `entries`, `meta`, `queue`).
 
 ## Dev workflow
 
@@ -123,6 +150,10 @@ endpoint the app uses, with seeded data: 12 categories × 2 feeds, ~140 entries
 including a hostile XSS entry (sanitizer check) and a `removed` entry
 (filtering check). State is in-memory per run; keep-alive is disabled on
 purpose (aborted browser fetches poison pooled connections otherwise).
+Env toggles: `INTEGRATIONS=0` (no save integration), `FAIL_WRITES=1` (every
+PUT returns 500 — exercises the offline queue's keep-on-server-error branch).
+Killing/restarting the process is the server-unreachable simulation for
+offline testing.
 
 ### Testing conventions
 
@@ -132,6 +163,10 @@ purpose (aborted browser fetches poison pooled connections otherwise).
   `vi.spyOn`; `ui.js` is `vi.mock`ed where `toast`/`nav` would touch DOM that
   doesn't exist in a bare jsdom document (pattern in `tests/manage.test.js`).
 - `state` is a per-file shared singleton — each test sets every field it reads.
+- IndexedDB-touching tests use the `fake-indexeddb` devDependency:
+  `vi.stubGlobal("indexedDB", new IDBFactory())` plus `await db.close()` in
+  `beforeEach` gives each test a pristine database (pattern in
+  `tests/db.test.js` / `tests/offline-queue.test.js`).
 - jsdom can't exercise: IntersectionObserver pagination, rAF auto-scroll, real
   drag-and-drop, the service worker. Verify those in a browser.
 

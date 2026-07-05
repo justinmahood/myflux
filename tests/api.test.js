@@ -1,7 +1,8 @@
 /* API client tests: URL normalization, request building, response and
  * error handling — with fetch stubbed out. */
 import { test, expect, vi, afterEach } from "vitest";
-import { api, ApiError } from "../js/api.js";
+import { api, ApiError, isNetworkError } from "../js/api.js";
+import { state } from "../js/state.js";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -117,6 +118,31 @@ test("api: integrationsStatus reads /v1/integrations/status", async () => {
   const calls = stubFetch(() => json({ has_integrations: true }));
   expect(await api.integrationsStatus()).toEqual({ has_integrations: true });
   expect(calls[0].url).toBe("https://mf.test/v1/integrations/status");
+});
+
+test("api: a network failure flips state.offline; a served response clears it", async () => {
+  api.configure("https://mf.test", "k");
+  state.offline = false;
+  vi.stubGlobal("fetch", async () => { throw new TypeError("Failed to fetch"); });
+  const err = await api.me().catch((e) => e);
+  expect(isNetworkError(err)).toBe(true);
+  expect(state.offline).toBe(true);
+  // even an HTTP error means the server answered
+  vi.stubGlobal("fetch", async () => json({ error_message: "no" }, 400));
+  await api.me().catch(() => {});
+  expect(state.offline).toBe(false);
+});
+
+test("api: aborted requests leave connectivity untouched", async () => {
+  api.configure("https://mf.test", "k");
+  state.offline = false;
+  vi.stubGlobal("fetch", async () => {
+    throw new DOMException("The user aborted a request.", "AbortError");
+  });
+  const err = await api.me().catch((e) => e);
+  expect(err.name).toBe("AbortError");
+  expect(isNetworkError(err)).toBe(false);
+  expect(state.offline).toBe(false);
 });
 
 test("api: abort signal is forwarded to fetch", async () => {

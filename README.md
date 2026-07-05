@@ -36,6 +36,9 @@ plain HTML, CSS, and JavaScript. No frameworks, no dependencies.
   native app
 - Installable PWA: add it to your dock/home screen and it opens in its own
   window; the app shell loads offline
+- Real offline reading: recent articles are cached locally (everything you
+  browse plus the ~100 newest unread), and read/star changes made offline
+  sync back automatically when the connection returns
 - Feed content is sanitized with a strict allowlist before rendering
 
 ## Requirements
@@ -110,7 +113,35 @@ context), then:
 
 The service worker caches the app shell with a network-first strategy: while
 online you always get the latest code, and when offline the app still starts
-(reading needs the Miniflux server, whose API is never intercepted or cached).
+(the Miniflux API itself is never intercepted or cached by the service
+worker — article data is handled separately, below).
+
+## Offline
+
+myflux keeps a local copy of recent articles in the browser (IndexedDB):
+every page you browse while online, plus the ~100 newest unread articles
+fetched in the background on each load. When the server is unreachable — or
+you have no connection at all — the app starts from this cache and shows an
+"Offline" banner.
+
+What works offline:
+
+- Reading cached articles in every view (All/Today/Starred, feeds,
+  categories), including search (local, over cached articles only)
+- Marking read/unread and starring: changes apply immediately, are queued
+  locally (the banner shows the pending count), and sync to Miniflux
+  automatically when the connection returns — the refresh button / `r` is
+  the manual "try to reconnect" action
+- Sharing (copy link / share sheet)
+
+What doesn't: article images (not cached), feed management, mark-all-as-read,
+"download full content", and save-to-third-party — those buttons disable
+until you're back online.
+
+Notes: logging out wipes the local cache (cached articles are private data).
+On iOS, install the app to your Home Screen if you rely on offline reading —
+Safari evicts storage for ordinary sites after 7 days of disuse, but
+installed apps are exempt.
 
 ## Notes
 
