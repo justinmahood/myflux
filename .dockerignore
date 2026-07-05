@@ -1,9 +1,11 @@
 node_modules
 dist
 tests
+tools
 .git
 .gitignore
 .claude
 README.md
+CLAUDE.md
 Dockerfile
 .dockerignore

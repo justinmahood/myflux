@@ -67,6 +67,11 @@ XSS vectors, the API client (auth header, URL/param building, error mapping,
 OPML raw bodies, abort signals), state derivations and persistence, category
 ordering, and entry-list query building and row rendering.
 
+To try the UI without a real Miniflux instance, run the bundled mock server
+(`python3 tools/mock_miniflux.py`) and sign in with `http://127.0.0.1:8423` /
+API key `test-key`. See [CLAUDE.md](CLAUDE.md) for the full contributor and
+agent guide.
+
 ## Deploying (Docker / Google Cloud Run)
 
 The included `Dockerfile` builds the optimized bundle and serves it with
