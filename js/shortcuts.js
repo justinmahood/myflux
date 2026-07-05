@@ -34,6 +34,9 @@ export const shortcuts = {
       case "s":
         reader.toggleStar();
         break;
+      case "S":
+        reader.saveEntry();
+        break;
       case "v":
         reader.openOriginal();
         break;

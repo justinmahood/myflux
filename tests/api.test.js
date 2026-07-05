@@ -100,6 +100,25 @@ test("api: non-JSON error bodies fall back to HTTP status message", async () => 
   expect(err.status).toBe(502);
 });
 
+test("api: saveEntry POSTs and tolerates the real 202 empty-JSON-body reply", async () => {
+  api.configure("https://mf.test", "k");
+  // Miniflux answers save-entry with 202, Content-Type: application/json,
+  // and an empty body — res.json() would throw on that.
+  const calls = stubFetch(() => new Response(null, {
+    status: 202, headers: { "Content-Type": "application/json" },
+  }));
+  expect(await api.saveEntry(42)).toBeNull();
+  expect(calls[0].url).toBe("https://mf.test/v1/entries/42/save");
+  expect(calls[0].opts.method).toBe("POST");
+});
+
+test("api: integrationsStatus reads /v1/integrations/status", async () => {
+  api.configure("https://mf.test", "k");
+  const calls = stubFetch(() => json({ has_integrations: true }));
+  expect(await api.integrationsStatus()).toEqual({ has_integrations: true });
+  expect(calls[0].url).toBe("https://mf.test/v1/integrations/status");
+});
+
 test("api: abort signal is forwarded to fetch", async () => {
   api.configure("https://mf.test", "k");
   const controller = new AbortController();

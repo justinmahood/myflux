@@ -23,12 +23,14 @@ export const reader = {
       content: document.getElementById("reader-content"),
       starBtn: document.getElementById("star-btn"),
       readBtn: document.getElementById("read-btn"),
+      saveBtn: document.getElementById("save-btn"),
       fetchBtn: document.getElementById("fetch-btn"),
       openBtn: document.getElementById("open-btn"),
     };
 
     this.els.starBtn.addEventListener("click", () => this.toggleStar());
     this.els.readBtn.addEventListener("click", () => this.toggleRead());
+    this.els.saveBtn.addEventListener("click", () => this.saveEntry());
     this.els.openBtn.addEventListener("click", () => this.openOriginal());
     this.els.fetchBtn.addEventListener("click", () => this.fetchFullContent());
 
@@ -92,6 +94,7 @@ export const reader = {
     const isRead = entry.status === "read";
     this.els.readBtn.title = isRead ? "Mark as unread (m)" : "Mark as read (m)";
     this.els.readBtn.classList.toggle("active", !isRead);
+    this.els.saveBtn.hidden = !state.hasIntegrations;
   },
 
   toggleStar() {
@@ -106,6 +109,27 @@ export const reader = {
   openOriginal() {
     if (this.current?.url) {
       window.open(this.current.url, "_blank", "noopener");
+    }
+  },
+
+  // One-shot send to whatever integration is configured in Miniflux
+  // (Pocket, Wallabag, Readwise, …). Not a toggle — the API is fire-and-forget
+  // (202) and there is no saved/unsaved state to reflect.
+  async saveEntry() {
+    if (!this.current) return;
+    if (!state.hasIntegrations) {
+      toast("No third-party integration is configured in Miniflux", true);
+      return;
+    }
+    const entry = this.current;
+    this.els.saveBtn.disabled = true;
+    try {
+      await api.saveEntry(entry.id);
+      toast("Saved to third-party service");
+    } catch (err) {
+      toast(`Could not save — ${err.message}`, true);
+    } finally {
+      this.els.saveBtn.disabled = false;
     }
   },
 

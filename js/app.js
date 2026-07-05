@@ -54,6 +54,13 @@ async function showApp() {
   document.getElementById("app-view").hidden = false;
   document.getElementById("user-name").textContent = state.user.username;
   nav.enterApp();
+  // Fire-and-forget: hide the save button if the server says no integration
+  // is configured. Endpoint requires Miniflux 2.2.2+; on failure keep the
+  // optimistic default (button visible).
+  api.integrationsStatus().then((res) => {
+    state.hasIntegrations = Boolean(res?.has_integrations);
+    reader.syncButtons();
+  }, () => {});
   await sidebar.load();
   list.show({ type: "all", id: null, title: "All" });
 }

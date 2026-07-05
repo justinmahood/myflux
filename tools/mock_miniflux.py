@@ -16,6 +16,9 @@ from urllib.parse import urlparse, parse_qs
 
 PORT = int(os.environ.get("PORT", 8423))
 API_KEY = "test-key"
+# INTEGRATIONS=0 simulates a user with no save-to-third-party integration
+# configured (myflux should hide its save button and refuse the S shortcut).
+HAS_INTEGRATIONS = os.environ.get("INTEGRATIONS", "1") != "0"
 
 random.seed(42)
 
@@ -306,12 +309,30 @@ class Handler(BaseHTTPRequestHandler):
             time.sleep(0.4)
             return self.reply(200, {"content": FULL_CONTENT})
 
+        if path == "/v1/integrations/status":  # Miniflux >= 2.2.2
+            return self.reply(200, {"has_integrations": HAS_INTEGRATIONS})
+
         self.reply(404, {"error_message": "Not found: " + path})
 
     def do_POST(self):
         parsed = urlparse(self.path)
         path = parsed.path
         if not self.authed():
+            return
+
+        m = re.fullmatch(r"/v1/entries/(\d+)/save", path)
+        if m:
+            if not HAS_INTEGRATIONS:
+                return self.reply(400, {"error_message":
+                                        "no third-party integration enabled"})
+            # Real Miniflux answers 202 with a JSON content-type but an EMPTY
+            # body — mimic that exactly; the client must tolerate it.
+            time.sleep(0.2)
+            self.send_response(202)
+            self.cors()
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", "0")
+            self.end_headers()
             return
 
         if path == "/v1/discover":

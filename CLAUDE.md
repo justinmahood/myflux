@@ -37,9 +37,9 @@ One page ([index.html](index.html)), three singleton panes, one entry module.
 | `js/sanitize.js` | Allowlist sanitizer (builds a fresh tree; unknown tags unwrap, dangerous tags drop), `textOf()` snippets, `firstImage()` thumbnails |
 | `js/sidebar.js` | Left pane: smart feeds, category tree, unread badges, favicons, drag-and-drop (category reorder + feed→category move) with edge auto-scroll |
 | `js/entrylist.js` | Middle pane: magazine rows, infinite scroll, **the optimistic read/star mutations** (`setStatus`/`toggleStar`) shared with the reader |
-| `js/reader.js` | Right pane: sanitized article rendering, star/read/fetch-content/open actions |
+| `js/reader.js` | Right pane: sanitized article rendering, star/read/save-to-third-party/fetch-content/open actions |
 | `js/manage.js` | All dialogs: add feed (discover flow), edit feed, tabbed Manage (bulk feed manager, category CRUD, OPML), `moveFeed()` |
-| `js/shortcuts.js` | Global keymap: `j`/`k`/`m`/`s`/`v`/`r`, `/`, `?` |
+| `js/shortcuts.js` | Global keymap: `j`/`k`/`m`/`s`/`S`/`v`/`r`, `/`, `?` |
 | `js/ui.js` | `toast()` + `nav` (mobile drill-in panes bound to the History API) |
 
 **Module communication:** direct imports plus CustomEvents on `state`
@@ -71,6 +71,14 @@ module-level code that touches another module or the DOM.
     `"data:"` before use.
   - `PUT /v1/entries` is the batch read/unread endpoint;
     `PUT /v1/entries/{id}/bookmark` toggles starred.
+  - `POST /v1/entries/{id}/save` sends an entry to the user's configured
+    third-party integration (fire-and-forget, not a toggle). It answers
+    **202 with a JSON content-type but an empty body** — `api.request()`
+    tolerates empty JSON bodies for this reason.
+  - `GET /v1/integrations/status` (`{has_integrations}`) exists only since
+    Miniflux **2.2.2**. Treat a failed probe as "integrations available"
+    (`state.hasIntegrations` defaults `true`): hiding the save button is a
+    hint, not a gate — the save call itself 400s with a readable message.
 - **Optimistic updates** live only in `entrylist.js` (`setStatus`,
   `toggleStar`): mutate the entry + unread counters, emit `"entry-updated"`,
   revert + error-toast on API failure. Rows and the reader both react to that

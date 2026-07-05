@@ -35,6 +35,10 @@ class AppState extends EventTarget {
   };
 
   user = null;
+  // Whether the user has a save-to-third-party integration configured in
+  // Miniflux. Defaults to true: the status endpoint only exists since 2.2.2,
+  // so on older servers we show the save UI and let the API answer.
+  hasIntegrations = true;
   categories = [];
   feeds = [];
   feedsById = new Map();

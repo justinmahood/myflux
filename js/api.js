@@ -43,7 +43,11 @@ export const api = {
     }
     if (res.status === 204) return null;
     const type = res.headers.get("Content-Type") ?? "";
-    return type.includes("json") ? res.json() : res.text();
+    if (!type.includes("json")) return res.text();
+    // Some endpoints (e.g. save-entry's 202) send a JSON content-type with an
+    // empty body — res.json() would throw on those.
+    const text = await res.text();
+    return text ? JSON.parse(text) : null;
   },
 
   get(path, params, signal) { return this.request("GET", path, { params, signal }); },
@@ -71,6 +75,8 @@ export const api = {
   },
   toggleBookmark(entryId) { return this.put(`/entries/${entryId}/bookmark`); },
   fetchContent(entryId) { return this.get(`/entries/${entryId}/fetch-content`); },
+  saveEntry(entryId) { return this.post(`/entries/${entryId}/save`); },
+  integrationsStatus() { return this.get("/integrations/status"); },
 
   markFeedRead(feedId) { return this.put(`/feeds/${feedId}/mark-all-as-read`); },
   markCategoryRead(catId) { return this.put(`/categories/${catId}/mark-all-as-read`); },
